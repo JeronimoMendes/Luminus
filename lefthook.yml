@@ -1,0 +1,16 @@
+pre-commit:
+  parallel: true
+  commands:
+    biome:
+      root: desktop/
+      glob: "src/**/*.{ts,tsx,js,jsx,css,json}"
+      run: npx @biomejs/biome check --no-errors-on-unmatched --changed --since=HEAD {staged_files}
+      stage_fixed: true
+    clippy:
+      root: desktop/src-tauri/
+      glob: "src/**/*.rs"
+      run: cargo clippy -- -D warnings
+    rustfmt:
+      root: desktop/src-tauri/
+      glob: "src/**/*.rs"
+      run: cargo fmt --check
