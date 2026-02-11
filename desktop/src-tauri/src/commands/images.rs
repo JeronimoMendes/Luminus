@@ -24,7 +24,7 @@ pub async fn get_all_images(
         FROM photograph p
         LEFT JOIN camera c ON p.camera_id = c.id
         LEFT JOIN lens l ON p.lens_id = l.id
-        ORDER BY p.datetime DESC"
+        ORDER BY p.datetime DESC",
     )
     .fetch_all(&state.db)
     .await

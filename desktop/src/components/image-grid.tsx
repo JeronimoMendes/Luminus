@@ -2,36 +2,35 @@ import type { PhotographMeta } from "@/api/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 
 interface ImageGridProps {
   images: PhotographMeta[];
+  selected: PhotographMeta | null;
+  onSelect: (img: PhotographMeta) => void;
+  onClose: () => void;
 }
 
-export function ImageGrid({ images }: ImageGridProps) {
-  const [selected, setSelected] = useState<PhotographMeta | null>(null);
-
-  const close = useCallback(() => setSelected(null), []);
-
+export function ImageGrid({ images, selected, onSelect, onClose }: ImageGridProps) {
   useEffect(() => {
     if (!selected) return;
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+      if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [selected, close]);
+  }, [selected, onClose]);
 
   return (
     <LayoutGroup>
-      <div className={selected ? "blur-sm transition-all" : "transition-all"}>
-        <ScrollArea className="h-[calc(100vh-80px)] w-full">
+      <div className={`h-full ${selected ? "blur-sm transition-all" : "transition-all"}`}>
+        <ScrollArea className="h-full w-full">
           <div className="columns-3 gap-2 p-2 lg:columns-4 xl:columns-5">
             {images.map((img) => (
               <div
                 key={img.path}
                 className="mb-2 break-inside-avoid overflow-hidden cursor-pointer"
-                onClick={() => setSelected(img)}
+                onClick={() => onSelect(img)}
               >
                 <motion.img
                   layoutId={img.path}
@@ -50,7 +49,7 @@ export function ImageGrid({ images }: ImageGridProps) {
         {selected && (
           <motion.div
             className="fixed inset-0 z-50 flex flex-col items-center justify-center"
-            onClick={close}
+            onClick={onClose}
             initial={{ backgroundColor: "rgba(0,0,0,0)" }}
             animate={{ backgroundColor: "rgba(0,0,0,0.6)" }}
             exit={{ backgroundColor: "rgba(0,0,0,0)" }}

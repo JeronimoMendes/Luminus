@@ -1,12 +1,14 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { Button } from "@/components/ui/button";
 import { ImageGrid } from "@/components/image-grid";
+import { Sidebar } from "@/components/sidebar";
 import { api } from "./api";
 import type { PhotographMeta } from "./api/types";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 function App() {
   const [images, setImages] = useState<PhotographMeta[]>([]);
+  const [selectedImage, setSelectedImage] = useState<PhotographMeta | null>(null);
+  const clearSelected = useCallback(() => setSelectedImage(null), []);
 
   const loadImages = async () => {
     const all = await api.getAllImages();
@@ -26,18 +28,18 @@ function App() {
   };
 
   return (
-    <main className="h-screen flex flex-col bg-background">
-      <div className="flex items-center gap-3 p-3 border-b">
-        <Button onClick={handlePickFolder} variant="outline">
-          Pick Folder to Import
-        </Button>
+    <main className="h-screen flex bg-background">
+      <Sidebar images={images} onImport={handlePickFolder} onSelectImage={setSelectedImage} />
+      <div className="flex-1 min-w-0 h-full overflow-hidden">
         {images.length > 0 && (
-          <span className="text-sm text-muted-foreground">
-            {images.length} images
-          </span>
+          <ImageGrid
+            images={images}
+            selected={selectedImage}
+            onSelect={setSelectedImage}
+            onClose={clearSelected}
+          />
         )}
       </div>
-      {images.length > 0 && <ImageGrid images={images} />}
     </main>
   );
 }
