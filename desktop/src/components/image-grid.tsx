@@ -1,11 +1,5 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import type { ImageInfo } from "@/api/types";
 import { useState, useCallback, useEffect } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
@@ -29,110 +23,81 @@ export function ImageGrid({ images }: ImageGridProps) {
   }, [selected, close]);
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <LayoutGroup>
-        <div className={selected ? "blur-sm transition-all" : "transition-all"}>
-          <ScrollArea className="h-[calc(100vh-80px)] w-full">
-            <div className="columns-3 gap-2 p-2 lg:columns-4 xl:columns-5">
-              {images.map((img) => (
-                <Tooltip key={img.path}>
-                  <TooltipTrigger asChild>
-                    <div
-                      className="mb-2 break-inside-avoid overflow-hidden cursor-pointer"
-                      onClick={() => setSelected(img)}
-                    >
-                      <motion.img
-                        layoutId={img.path}
-                        src={convertFileSrc(img.path)}
-                        alt={img.filename}
-                        className="w-full object-cover"
-                        loading="lazy"
-                      />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-xs">
-                    <p className="font-semibold">{img.filename}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {img.dimensions && `${img.dimensions[0]}×${img.dimensions[1]}`}
-                      {" — "}
-                      {(img.size_bytes / 1024).toFixed(0)} KB
-                    </p>
-                    {(img.camera_model || img.lens_model) && (
-                      <p className="text-xs text-muted-foreground">
-                        {[img.camera_model, img.lens_model].filter(Boolean).join(" · ")}
-                      </p>
-                    )}
-                    {(img.aperture || img.iso || img.exposure) && (
-                      <p className="text-xs text-muted-foreground">
-                        {[
-                          img.aperture && `f/${img.aperture}`,
-                          img.iso && `ISO ${img.iso}`,
-                          img.exposure && `${img.exposure}s`,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                    )}
-                  </TooltipContent>
-                </Tooltip>
-              ))}
-            </div>
-          </ScrollArea>
-        </div>
-
-        <AnimatePresence>
-          {selected && (
-            <motion.div
-              className="fixed inset-0 z-50 flex flex-col items-center justify-center"
-              onClick={close}
-              initial={{ backgroundColor: "rgba(0,0,0,0)" }}
-              animate={{ backgroundColor: "rgba(0,0,0,0.6)" }}
-              exit={{ backgroundColor: "rgba(0,0,0,0)" }}
-              transition={{ duration: 0.3 }}
-            >
-              <motion.img
-                layoutId={selected.path}
-                src={convertFileSrc(selected.path)}
-                alt={selected.filename}
-                className="max-h-[80vh] max-w-[90vw] object-contain"
-                onClick={(e) => e.stopPropagation()}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              />
-              <motion.div
-                className="mt-4 text-center text-white"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                transition={{ delay: 0.15, duration: 0.25 }}
-                onClick={(e) => e.stopPropagation()}
+    <LayoutGroup>
+      <div className={selected ? "blur-sm transition-all" : "transition-all"}>
+        <ScrollArea className="h-[calc(100vh-80px)] w-full">
+          <div className="columns-3 gap-2 p-2 lg:columns-4 xl:columns-5">
+            {images.map((img) => (
+              <div
+                key={img.path}
+                className="mb-2 break-inside-avoid overflow-hidden cursor-pointer"
+                onClick={() => setSelected(img)}
               >
-                <p className="text-sm font-semibold">{selected.filename}</p>
+                <motion.img
+                  layoutId={img.path}
+                  src={convertFileSrc(img.path)}
+                  alt={img.filename}
+                  className="w-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </div>
+
+      <AnimatePresence>
+        {selected && (
+          <motion.div
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center"
+            onClick={close}
+            initial={{ backgroundColor: "rgba(0,0,0,0)" }}
+            animate={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+            exit={{ backgroundColor: "rgba(0,0,0,0)" }}
+            transition={{ duration: 0.3 }}
+          >
+            <motion.img
+              layoutId={selected.path}
+              src={convertFileSrc(selected.path)}
+              alt={selected.filename}
+              className="max-h-[80vh] max-w-[90vw] object-contain"
+              onClick={(e) => e.stopPropagation()}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            />
+            <motion.div
+              className="mt-4 text-center text-white"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ delay: 0.15, duration: 0.25 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="text-sm font-semibold">{selected.filename}</p>
+              {selected.dimensions && (
                 <p className="text-xs text-white/60">
-                  {selected.dimensions && `${selected.dimensions[0]}×${selected.dimensions[1]}`}
-                  {" — "}
-                  {(selected.size_bytes / 1024).toFixed(0)} KB
+                  {selected.dimensions[0]}×{selected.dimensions[1]}
                 </p>
-                {(selected.camera_model || selected.lens_model) && (
-                  <p className="text-xs text-white/60">
-                    {[selected.camera_model, selected.lens_model].filter(Boolean).join(" · ")}
-                  </p>
-                )}
-                {(selected.aperture || selected.iso || selected.exposure) && (
-                  <p className="text-xs text-white/60">
-                    {[
-                      selected.aperture && `f/${selected.aperture}`,
-                      selected.iso && `ISO ${selected.iso}`,
-                      selected.exposure && `${selected.exposure}s`,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                )}
-              </motion.div>
+              )}
+              {(selected.camera_model || selected.lens_model) && (
+                <p className="text-xs text-white/60">
+                  {[selected.camera_model, selected.lens_model].filter(Boolean).join(" · ")}
+                </p>
+              )}
+              {(selected.aperture || selected.iso || selected.exposure) && (
+                <p className="text-xs text-white/60">
+                  {[
+                    selected.aperture && `f/${selected.aperture}`,
+                    selected.iso && `ISO ${selected.iso}`,
+                    selected.exposure && `${selected.exposure}s`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
             </motion.div>
-          )}
-        </AnimatePresence>
-      </LayoutGroup>
-    </TooltipProvider>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </LayoutGroup>
   );
 }
