@@ -73,9 +73,9 @@ export function ImageGrid({ images }: ImageGridProps) {
               onClick={(e) => e.stopPropagation()}
             >
               <p className="text-sm font-semibold">{selected.filename}</p>
-              {selected.dimensions && (
+              {selected.width && selected.height && (
                 <p className="text-xs text-white/60">
-                  {selected.dimensions[0]}×{selected.dimensions[1]}
+                  {selected.width}×{selected.height}
                 </p>
               )}
               {(selected.camera_model || selected.lens_model) && (

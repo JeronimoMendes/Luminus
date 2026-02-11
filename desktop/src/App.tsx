@@ -2,17 +2,26 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
 import { ImageGrid } from "@/components/image-grid";
 import { api } from "./api";
-import type { ScanResult } from "./api/types";
-import { useState } from "react";
+import type { PhotographMeta } from "./api/types";
+import { useEffect, useState } from "react";
 
 function App() {
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [images, setImages] = useState<PhotographMeta[]>([]);
+
+  const loadImages = async () => {
+    const all = await api.getAllImages();
+    setImages(all);
+  };
+
+  useEffect(() => {
+    loadImages();
+  }, []);
 
   const handlePickFolder = async () => {
     const selected = await open({ directory: true });
     if (selected) {
-      const res = await api.scanFolder(selected);
-      setScanResult(res);
+      await api.scanFolder(selected);
+      await loadImages();
     }
   };
 
@@ -22,13 +31,13 @@ function App() {
         <Button onClick={handlePickFolder} variant="outline">
           Pick Folder to Import
         </Button>
-        {scanResult && (
+        {images.length > 0 && (
           <span className="text-sm text-muted-foreground">
-            {scanResult.images.length} images
+            {images.length} images
           </span>
         )}
       </div>
-      {scanResult && <ImageGrid images={scanResult.images} />}
+      {images.length > 0 && <ImageGrid images={images} />}
     </main>
   );
 }

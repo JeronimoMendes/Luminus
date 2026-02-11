@@ -1,9 +1,12 @@
 export interface PhotographMeta {
   path: string;
   filename: string;
-  size_bytes: number;
-  dimensions: [number, number] | null;
+  datetime: string;
+  width: number | null;
+  height: number | null;
+  camera_maker: string;
   camera_model: string;
+  lens_maker: string;
   lens_model: string;
   aperture: string;
   iso: string;
