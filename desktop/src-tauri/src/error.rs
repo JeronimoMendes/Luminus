@@ -8,6 +8,9 @@ pub enum MyCustomError {
 
     #[error(transparent)]
     Anyhow(#[from] anyhow::Error),
+
+    #[error(transparent)]
+    Database(#[from] sqlx::Error),
 }
 
 impl serde::Serialize for MyCustomError {

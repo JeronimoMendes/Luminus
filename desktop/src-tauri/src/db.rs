@@ -9,8 +9,15 @@ pub type Db = Pool<Sqlite>;
 pub async fn setup_db(app: &App) -> Db {
     // Register sqlite-vec as an auto-extension so all connections have vec0
     unsafe {
-        libsqlite3_sys::sqlite3_auto_extension(Some(std::mem::transmute(
-            sqlite_vec::sqlite3_vec_init as *const (),
+        libsqlite3_sys::sqlite3_auto_extension(Some(std::mem::transmute::<
+            *const (),
+            unsafe extern "C" fn(
+                *mut libsqlite3_sys::sqlite3,
+                *mut *mut i8,
+                *const libsqlite3_sys::sqlite3_api_routines,
+            ) -> i32,
+        >(
+            sqlite_vec::sqlite3_vec_init as *const ()
         )));
     }
 
@@ -36,6 +43,7 @@ pub async fn setup_db(app: &App) -> Db {
     .expect("failed to create database");
 
     let db = SqlitePoolOptions::new()
+        .max_connections(1)
         .connect(path.to_str().unwrap())
         .await
         .unwrap();

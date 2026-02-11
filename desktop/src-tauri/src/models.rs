@@ -1,5 +1,5 @@
 mod image;
 mod scan;
 
-pub use image::ImageInfo;
+pub use image::PhotographMeta;
 pub use scan::ScanResult;

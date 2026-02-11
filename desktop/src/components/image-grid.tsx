@@ -1,15 +1,15 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
+import type { PhotographMeta } from "@/api/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { ImageInfo } from "@/api/types";
-import { useState, useCallback, useEffect } from "react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import { useCallback, useEffect, useState } from "react";
 
 interface ImageGridProps {
-  images: ImageInfo[];
+  images: PhotographMeta[];
 }
 
 export function ImageGrid({ images }: ImageGridProps) {
-  const [selected, setSelected] = useState<ImageInfo | null>(null);
+  const [selected, setSelected] = useState<PhotographMeta | null>(null);
 
   const close = useCallback(() => setSelected(null), []);
 

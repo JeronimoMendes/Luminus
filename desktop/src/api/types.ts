@@ -1,4 +1,4 @@
-export interface ImageInfo {
+export interface PhotographMeta {
   path: string;
   filename: string;
   size_bytes: number;
@@ -11,5 +11,5 @@ export interface ImageInfo {
 }
 
 export interface ScanResult {
-  images: ImageInfo[];
+  images: PhotographMeta[];
 }

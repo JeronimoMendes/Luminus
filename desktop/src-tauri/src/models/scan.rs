@@ -1,6 +1,6 @@
-use super::image::ImageInfo;
+use super::image::PhotographMeta;
 
 #[derive(serde::Serialize)]
 pub struct ScanResult {
-    pub images: Vec<ImageInfo>,
+    pub images: Vec<PhotographMeta>,
 }
