@@ -4,6 +4,7 @@ import type { PhotographMeta, ScanResult } from "./types";
 export const tauriApi = {
     scanFolder: (dirPath: string) => invoke<ScanResult>('scan_folder', { dirPath }),
     getAllImages: () => invoke<PhotographMeta[]>('get_all_images'),
+    query_photograph: (query: string) => invoke<PhotographMeta[]>('query_photograph', { query }),
 }
 
 export const api = tauriApi;

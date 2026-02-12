@@ -13,4 +13,5 @@ pre-commit:
     rustfmt:
       root: desktop/src-tauri/
       glob: "desktop/src-tauri/src/**/*.rs"
-      run: cargo fmt --check
+      run: cargo fmt
+      stage_fixed: true

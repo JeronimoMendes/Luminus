@@ -19,5 +19,9 @@ pub async fn scan_folder(
         .await
         .map_err(MyCustomError::from)?;
 
+    metadata::embed_photographs(&results, &state.db, &state.image_embeder)
+        .await
+        .map_err(MyCustomError::from)?;
+
     Ok(results)
 }

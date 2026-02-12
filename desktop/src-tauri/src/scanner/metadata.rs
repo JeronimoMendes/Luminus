@@ -1,7 +1,9 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
 use exif::{In, Tag};
+use open_clip_inference::VisionEmbedder;
 use sqlx::{Pool, QueryBuilder, Sqlite};
 use std::path::Path;
+use zerocopy::IntoBytes;
 
 use crate::models::{PhotographMeta, ScanResult};
 
@@ -156,5 +158,37 @@ pub async fn save_photographs(
     qb.build().execute(pool).await?;
 
     log::info!("Saved {} photographs to database", scan_result.images.len());
+    Ok(())
+}
+
+pub async fn embed_photographs(
+    scan_result: &ScanResult,
+    pool: &Pool<Sqlite>,
+    image_embeder: &VisionEmbedder,
+) -> anyhow::Result<()> {
+    for photo in scan_result.images.iter() {
+        let file = image::open(Path::new(&photo.path))?;
+        let embedding = image_embeder.embed_image(&file)?;
+
+        let photograph_id: Option<(i64,)> =
+            sqlx::query_as("SELECT id FROM photograph WHERE file_path = ?")
+                .bind(&photo.path)
+                .fetch_optional(pool)
+                .await?;
+
+        if let Some((photo_id,)) = photograph_id {
+            let embedding_bytes = embedding.as_slice().unwrap().as_bytes();
+            sqlx::query("INSERT OR IGNORE INTO vectors (embedding, photograph_id) VALUES (?, ?)")
+                .bind(embedding_bytes)
+                .bind(photo_id)
+                .execute(pool)
+                .await?;
+        }
+    }
+
+    log::info!(
+        "Embedded {} photographs into vector store",
+        scan_result.images.len()
+    );
     Ok(())
 }

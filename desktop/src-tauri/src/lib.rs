@@ -7,6 +7,7 @@ mod state;
 
 use crate::db::setup_db;
 use crate::state::AppState;
+use open_clip_inference::Clip;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -32,14 +33,27 @@ pub fn run() {
         .setup(|app| {
             tauri::async_runtime::block_on(async move {
                 let db = setup_db(app).await;
+                let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
+                let clip = Clip::from_hf(model_id)
+                    // .with_execution_providers(&[CoreML::default().build()])
+                    .build()
+                    .await?;
+                let image_embeder = clip.vision;
+                let text_embeder = clip.text;
 
-                app.manage(AppState { db });
-            });
+                app.manage(AppState {
+                    db,
+                    image_embeder,
+                    text_embeder,
+                });
+                Ok::<(), Box<dyn std::error::Error>>(())
+            })?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::scanner::scan_folder,
-            commands::images::get_all_images
+            commands::images::get_all_images,
+            commands::images::query_photograph,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
