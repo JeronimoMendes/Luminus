@@ -37,9 +37,18 @@ pub async fn get_all_images(
 #[tauri::command]
 pub async fn query_photograph(
     query: String,
+    k: i64,
+    distance: f64,
     state: State<'_, AppState>,
 ) -> Result<Vec<PhotographMeta>, MyCustomError> {
-    log::info!("Querying photographs with '{}'", query);
+    let k = k.clamp(1, 200);
+    let distance = distance.clamp(0.01, 10.0);
+    log::info!(
+        "Querying photographs with '{}' (k={}, distance={})",
+        query,
+        k,
+        distance
+    );
     let query_embed = state
         .text_embeder
         .embed_text(&query)
@@ -47,9 +56,11 @@ pub async fn query_photograph(
     let embed_bytes = query_embed.as_slice().unwrap().as_bytes();
 
     let photo_ids: Vec<(i64,)> = sqlx::query_as(
-        "SELECT photograph_id FROM vectors WHERE embedding MATCH ? AND k = 10 and distance < 1.4 ORDER BY distance",
+        "SELECT photograph_id FROM vectors WHERE embedding MATCH ? AND k = ? and distance < ? ORDER BY distance",
     )
     .bind(embed_bytes)
+    .bind(k)
+    .bind(distance)
     .fetch_all(&state.db)
     .await
     .map_err(MyCustomError::from)?;

@@ -1,7 +1,9 @@
 import { open } from "@tauri-apps/plugin-dialog";
+import { listen } from "@tauri-apps/api/event";
 import { ImageGrid } from "@/components/image-grid";
 import { Sidebar } from "@/components/sidebar";
 import { FilterPanel, type Filters } from "@/components/filter-panel";
+import { loadSettings, SETTINGS_CHANGED_EVENT, type SearchSettings } from "@/settings";
 import { api } from "./api";
 import type { PhotographMeta } from "./api/types";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
@@ -16,6 +18,7 @@ function App() {
   const [search, setSearch] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState<Filters>(emptyFilters);
+  const [settings, setSettings] = useState<SearchSettings>(loadSettings);
   const clearSelected = useCallback(() => setSelectedImage(null), []);
 
   const filterOptions = useMemo(() => {
@@ -64,6 +67,13 @@ function App() {
     loadImages();
   }, []);
 
+  useEffect(() => {
+    const unlisten = listen<SearchSettings>(SETTINGS_CHANGED_EVENT, (event) => {
+      setSettings(event.payload);
+    });
+    return () => { unlisten.then((fn) => fn()); };
+  }, []);
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -75,17 +85,17 @@ function App() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       try {
-        const results = await api.query_photograph(search.trim());
+        const results = await api.query_photograph(search.trim(), settings.queryLimit, settings.distanceThreshold);
         setImages(results);
       } catch (e) {
         console.error("query_photograph failed:", e);
       }
-    }, 300);
+    }, 600);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [search]);
+  }, [search, settings]);
 
   const handlePickFolder = async () => {
     const selected = await open({ directory: true });
