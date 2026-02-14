@@ -1,12 +1,11 @@
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	FolderKanban,
 	HardDrive,
 	ImageIcon,
 	Plus,
-	Sparkles,
-	Tag,
+	Tag
 } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 type NavItem = "library" | "semantic";
 
@@ -78,12 +77,6 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps) {
 								label="Photo Library"
 								active={activeNav === "library"}
 								onClick={() => onNavChange("library")}
-							/>
-							<NavButton
-								icon={Sparkles}
-								label="Semantic Search"
-								active={activeNav === "semantic"}
-								onClick={() => onNavChange("semantic")}
 							/>
 						</div>
 					</div>
