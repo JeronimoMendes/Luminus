@@ -1,175 +1,131 @@
 import {
-  FolderOpen,
-  ChevronRight,
-  Image,
-  FolderClosed,
-  PanelLeftClose,
-  PanelLeftOpen,
+	FolderKanban,
+	HardDrive,
+	ImageIcon,
+	Plus,
+	Sparkles,
+	Tag,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { PhotographMeta } from "@/api/types";
-import { useState, useMemo } from "react";
 
-interface FileTreeNode {
-  name: string;
-  path: string;
-  childrenMap: Map<string, FileTreeNode>;
-  children: FileTreeNode[];
-  images: PhotographMeta[];
+type NavItem = "library" | "semantic";
+
+interface SidebarProps {
+	activeNav: NavItem;
+	onNavChange: (item: NavItem) => void;
 }
 
-function createNode(name: string, path: string): FileTreeNode {
-  return { name, path, childrenMap: new Map(), children: [], images: [] };
-}
-
-function buildTree(images: PhotographMeta[]): FileTreeNode[] {
-  const root = createNode("", "");
-
-  for (const img of images) {
-    const parts = img.path.split(/[/\\]/).filter(Boolean).slice(0, -1);
-    let current = root;
-
-    for (let i = 0; i < parts.length; i++) {
-      const part = parts[i];
-      let child = current.childrenMap.get(part);
-      if (!child) {
-        child = createNode(part, parts.slice(0, i + 1).join("/"));
-        current.childrenMap.set(part, child);
-        current.children.push(child);
-      }
-      current = child;
-    }
-    current.images.push(img);
-  }
-
-  // Find the deepest common ancestor to avoid showing the full path
-  let node = root;
-  while (node.children.length === 1 && node.images.length === 0) {
-    node = node.children[0];
-  }
-
-  // If the common ancestor has no meaningful name, return its children directly
-  if (!node.name && node.children.length > 0) {
-    return node.children;
-  }
-
-  return node.children.length > 0 || node.images.length > 0 ? [node] : [];
-}
-
-function TreeNode({
-  node,
-  depth,
-  onSelectImage,
+function NavButton({
+	icon: Icon,
+	label,
+	active,
+	onClick,
+	disabled,
 }: {
-  node: FileTreeNode;
-  depth: number;
-  onSelectImage: (img: PhotographMeta) => void;
+	icon: React.ComponentType<{ className?: string }>;
+	label: string;
+	active?: boolean;
+	onClick?: () => void;
+	disabled?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(depth < 1);
-
-  const hasContent = node.children.length > 0 || node.images.length > 0;
-
-  return (
-    <div>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1 w-full px-2 py-1 text-sm hover:bg-accent rounded-sm text-left"
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
-      >
-        <ChevronRight
-          className={`h-3.5 w-3.5 shrink-0 transition-transform ${expanded ? "rotate-90" : ""}`}
-        />
-        {expanded ? (
-          <FolderOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
-        ) : (
-          <FolderClosed className="h-4 w-4 shrink-0 text-muted-foreground" />
-        )}
-        <span className="truncate">{node.name}</span>
-      </button>
-
-      {expanded && hasContent && (
-        <div>
-          {node.children.map((child) => (
-            <TreeNode key={child.path} node={child} depth={depth + 1} onSelectImage={onSelectImage} />
-          ))}
-          {node.images.map((img) => (
-            <button
-              key={img.path}
-              onClick={() => onSelectImage(img)}
-              className="flex items-center gap-1 w-full px-2 py-1 text-sm hover:bg-accent rounded-sm text-left"
-              style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
-            >
-              <Image className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <span className="truncate">{img.filename}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			disabled={disabled}
+			className={`flex items-center gap-2.5 w-full px-3 py-2 text-[13px] rounded-lg transition-colors ${
+				active
+					? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+					: disabled
+						? "text-muted-foreground/50 cursor-not-allowed"
+						: "text-sidebar-foreground hover:bg-sidebar-accent/50"
+			}`}
+		>
+			<Icon className="h-4 w-4 shrink-0" />
+			<span className="truncate">{label}</span>
+		</button>
+	);
 }
 
-export function Sidebar({
-  images,
-  onImport,
-  onSelectImage,
-}: {
-  images: PhotographMeta[];
-  onImport: () => void;
-  onSelectImage: (img: PhotographMeta) => void;
-}) {
-  const [collapsed, setCollapsed] = useState(false);
-  const tree = useMemo(() => buildTree(images), [images]);
+function SectionLabel({ children }: { children: React.ReactNode }) {
+	return (
+		<div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+			{children}
+		</div>
+	);
+}
 
-  return (
-    <div
-      className={`border-r flex flex-col bg-background shrink-0 transition-[width] duration-200 ${collapsed ? "w-12" : "w-60"}`}
-    >
-      <div className={`flex items-center gap-1 p-2 ${collapsed ? "flex-col" : ""}`}>
-        <Button
-          onClick={() => setCollapsed(!collapsed)}
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 shrink-0"
-        >
-          {collapsed ? (
-            <PanelLeftOpen className="h-4 w-4" />
-          ) : (
-            <PanelLeftClose className="h-4 w-4" />
-          )}
-        </Button>
+export function Sidebar({ activeNav, onNavChange }: SidebarProps) {
+	return (
+		<div className="w-64 shrink-0 flex flex-col bg-sidebar border-r border-sidebar-border h-full">
+			{/* Brand header */}
+			<div className="flex items-center gap-2.5 px-4 py-5">
+				<img src="/orb.png" alt="Luminus" className="h-7 w-7 rounded-full" />
+				<span className="text-[15px] font-semibold text-sidebar-foreground tracking-tight">
+					Luminus
+				</span>
+			</div>
 
-        {collapsed ? (
-          <Button
-            onClick={onImport}
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0"
-          >
-            <FolderOpen className="h-4 w-4" />
-          </Button>
-        ) : (
-          <Button
-            onClick={onImport}
-            variant="outline"
-            className="flex-1 justify-start gap-2"
-          >
-            <FolderOpen className="h-4 w-4" />
-            Import
-          </Button>
-        )}
-      </div>
+			{/* Navigation */}
+			<ScrollArea className="flex-1 px-2">
+				<div className="space-y-4 pb-4">
+					{/* Search section */}
+					<div>
+						<SectionLabel>Search</SectionLabel>
+						<div className="space-y-0.5">
+							<NavButton
+								icon={ImageIcon}
+								label="Photo Library"
+								active={activeNav === "library"}
+								onClick={() => onNavChange("library")}
+							/>
+							<NavButton
+								icon={Sparkles}
+								label="Semantic Search"
+								active={activeNav === "semantic"}
+								onClick={() => onNavChange("semantic")}
+							/>
+						</div>
+					</div>
 
-      {!collapsed && tree.length > 0 && (
-        <ScrollArea className="flex-1">
-          <div className="pb-4">
-            {tree.map((node) => (
-              <TreeNode key={node.path} node={node} depth={0} onSelectImage={onSelectImage} />
-            ))}
-          </div>
-        </ScrollArea>
-      )}
-    </div>
-  );
+					{/* Projects section */}
+					<div>
+						<SectionLabel>Projects</SectionLabel>
+						<div className="space-y-0.5">
+							<NavButton icon={FolderKanban} label="Landscapes 2026" disabled />
+							<NavButton
+								icon={FolderKanban}
+								label="Urban Photography"
+								disabled
+							/>
+							<NavButton icon={Plus} label="New Project" disabled />
+						</div>
+					</div>
+
+					{/* Smart Tags section */}
+					<div>
+						<SectionLabel>Smart Tags</SectionLabel>
+						<div className="space-y-0.5">
+							<NavButton icon={Tag} label="Coming Soon" disabled />
+						</div>
+					</div>
+				</div>
+			</ScrollArea>
+
+			{/* Footer */}
+			<div className="border-t border-sidebar-border px-4 py-3 flex items-center gap-2.5">
+				<div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center">
+					<HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+				</div>
+				<div className="min-w-0">
+					<p className="text-[13px] font-medium text-sidebar-foreground truncate">
+						Local Storage
+					</p>
+					<p className="text-[11px] text-muted-foreground truncate">
+						On this device
+					</p>
+				</div>
+			</div>
+		</div>
+	);
 }
