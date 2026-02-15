@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ContentHeader } from "@/components/content-header";
 import { FilterPanel, type Filters } from "@/components/filter-panel";
 import { ImageGrid } from "@/components/image-grid";
+import { ImportQueue } from "@/components/import-queue";
 import { Sidebar } from "@/components/sidebar";
 import { TopBar } from "@/components/top-bar";
 import {
@@ -71,14 +72,14 @@ function App() {
 	const activeFilterCount =
 		filters.camera.length + filters.lens.length + filters.iso.length;
 
-	const loadImages = async () => {
+	const loadImages = useCallback(async () => {
 		const all = await api.getAllImages();
 		setImages(all);
-	};
+	}, []);
 
 	useEffect(() => {
 		loadImages();
-	}, []);
+	}, [loadImages]);
 
 	useEffect(() => {
 		const unlisten = listen<SearchSettings>(SETTINGS_CHANGED_EVENT, (event) => {
@@ -114,11 +115,21 @@ function App() {
 		return () => {
 			if (debounceRef.current) clearTimeout(debounceRef.current);
 		};
-	}, [search, settings]);
+	}, [search, settings, loadImages]);
+
+	const preScanImages = useRef<PhotographMeta[]>([]);
+
+	const handleScanProgress = useCallback((scanned: PhotographMeta[]) => {
+		// Merge existing images (before this scan) with newly completed ones
+		const existingPaths = new Set(preScanImages.current.map((i) => i.path));
+		const newPhotos = scanned.filter((p) => !existingPaths.has(p.path));
+		setImages([...preScanImages.current, ...newPhotos]);
+	}, []);
 
 	const handlePickFolder = async () => {
 		const selected = await open({ directory: true });
 		if (selected) {
+			preScanImages.current = images;
 			await api.scanFolder(selected);
 			await loadImages();
 		}
@@ -157,6 +168,9 @@ function App() {
 							<p className="text-xs">Click Import to add your first photos</p>
 						</div>
 					)}
+					<div className="absolute bottom-4 right-4 w-[430px] z-50">
+						<ImportQueue onScanProgress={handleScanProgress} />
+					</div>
 					<FilterPanel
 						open={filterOpen}
 						onClose={() => setFilterOpen(false)}

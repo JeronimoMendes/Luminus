@@ -3,9 +3,10 @@ use exif::{In, Tag};
 use open_clip_inference::VisionEmbedder;
 use sqlx::{Pool, QueryBuilder, Sqlite};
 use std::path::Path;
+use tauri::{AppHandle, Emitter};
 use zerocopy::IntoBytes;
 
-use crate::models::{PhotographMeta, ScanResult};
+use crate::models::{PhotographMeta, ScanResult, ScanUpdate};
 
 fn exif_string(field: &exif::Field) -> String {
     let s = field.display_value().to_string();
@@ -165,8 +166,31 @@ pub async fn embed_photographs(
     scan_result: &ScanResult,
     pool: &Pool<Sqlite>,
     image_embeder: &VisionEmbedder,
+    app: AppHandle,
 ) -> anyhow::Result<()> {
-    for photo in scan_result.images.iter() {
+    let number_of_images = scan_result.images.len();
+    for (i, photo) in scan_result.images.iter().enumerate() {
+        let images_scanned: Vec<PhotographMeta>;
+        let images_to_scan: Vec<PhotographMeta>;
+        if i == 0 {
+            images_scanned = vec![];
+            images_to_scan = scan_result.images.clone();
+        } else if i == number_of_images {
+            images_to_scan = vec![photo.clone()];
+            images_scanned = scan_result.images[0..i].to_vec();
+        } else {
+            images_scanned = scan_result.images[0..i].to_vec();
+            images_to_scan = scan_result.images[i..].to_vec();
+        }
+        app.emit(
+            "scan-update",
+            ScanUpdate {
+                current_image_path: photo.path.clone(),
+                images_scanned,
+                images_to_scan,
+            },
+        )?;
+
         let file = image::open(Path::new(&photo.path))?;
         let embedding = image_embeder.embed_image(&file)?;
 
@@ -185,6 +209,14 @@ pub async fn embed_photographs(
                 .await?;
         }
     }
+    app.emit(
+        "scan-update",
+        ScanUpdate {
+            current_image_path: "".to_string(),
+            images_to_scan: vec![],
+            images_scanned: scan_result.images.clone(),
+        },
+    )?;
 
     log::info!(
         "Embedded {} photographs into vector store",
