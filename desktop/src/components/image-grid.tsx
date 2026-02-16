@@ -9,6 +9,7 @@ interface ImageGridProps {
 	selected: PhotographMeta | null;
 	onSelect: (img: PhotographMeta) => void;
 	onClose: () => void;
+	preserveSearchOrder?: boolean;
 }
 
 function groupByDate(
@@ -93,8 +94,12 @@ export function ImageGrid({
 	selected,
 	onSelect,
 	onClose,
+	preserveSearchOrder = false,
 }: ImageGridProps) {
-	const groups = useMemo(() => groupByDate(images), [images]);
+	const groups = useMemo(
+		() => (preserveSearchOrder ? [] : groupByDate(images)),
+		[images, preserveSearchOrder],
+	);
 
 	useEffect(() => {
 		if (!selected) return;
@@ -111,24 +116,38 @@ export function ImageGrid({
 				className={`h-full ${selected ? "blur-sm transition-all" : "transition-all"}`}
 			>
 				<ScrollArea className="h-full w-full">
-					<div className="px-8 pb-8 space-y-6">
-						{groups.map((group) => (
-							<div key={group.date}>
-								<h3 className="text-[13px] font-semibold text-muted-foreground mb-3">
-									{group.label}
-								</h3>
-								<div className="flex flex-wrap gap-2">
-									{group.images.map((img) => (
-										<PhotoCard
-											key={img.path}
-											img={img}
-											onClick={() => onSelect(img)}
-										/>
-									))}
-								</div>
+					{preserveSearchOrder ? (
+						<div className="px-8 pb-8">
+							<div className="flex flex-wrap gap-2">
+								{images.map((img) => (
+									<PhotoCard
+										key={img.path}
+										img={img}
+										onClick={() => onSelect(img)}
+									/>
+								))}
 							</div>
-						))}
-					</div>
+						</div>
+					) : (
+						<div className="px-8 pb-8 space-y-6">
+							{groups.map((group) => (
+								<div key={group.date}>
+									<h3 className="text-[13px] font-semibold text-muted-foreground mb-3">
+										{group.label}
+									</h3>
+									<div className="flex flex-wrap gap-2">
+										{group.images.map((img) => (
+											<PhotoCard
+												key={img.path}
+												img={img}
+												onClick={() => onSelect(img)}
+											/>
+										))}
+									</div>
+								</div>
+							))}
+						</div>
+					)}
 				</ScrollArea>
 			</div>
 

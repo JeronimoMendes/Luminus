@@ -28,6 +28,7 @@ function App() {
 	const [settings, setSettings] = useState<SearchSettings>(loadSettings);
 	const [activeNav, setActiveNav] = useState<"library" | "semantic">("library");
 	const clearSelected = useCallback(() => setSelectedImage(null), []);
+	const isSearchActive = search.trim().length > 0;
 
 	const filterOptions = useMemo(() => {
 		const cameras = new Set<string>();
@@ -93,7 +94,8 @@ function App() {
 	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
-		if (!search.trim()) {
+		const query = search.trim();
+		if (!query) {
 			loadImages().catch(console.error);
 			return;
 		}
@@ -102,7 +104,7 @@ function App() {
 		debounceRef.current = setTimeout(async () => {
 			try {
 				const results = await api.query_photograph(
-					search.trim(),
+					query,
 					settings.queryLimit,
 					settings.distanceThreshold,
 				);
@@ -156,9 +158,10 @@ function App() {
 								selected={selectedImage}
 								onSelect={setSelectedImage}
 								onClose={clearSelected}
+								preserveSearchOrder={isSearchActive}
 							/>
 						</div>
-					) : search.trim() ? (
+					) : isSearchActive ? (
 						<div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
 							No results for &ldquo;{search}&rdquo;
 						</div>

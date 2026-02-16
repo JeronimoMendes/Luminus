@@ -50,10 +50,12 @@ pub async fn query_photograph(
         distance
     );
     let query_embed = state
-        .text_embeder
+        .clip
+        .lock()
+        .unwrap()
         .embed_text(&query)
         .map_err(|e| MyCustomError::Anyhow(e.into()))?;
-    let embed_bytes = query_embed.as_slice().unwrap().as_bytes();
+    let embed_bytes = query_embed.as_bytes();
 
     let photo_ids: Vec<(i64,)> = sqlx::query_as(
         "SELECT photograph_id FROM vectors WHERE embedding MATCH ? AND k = ? and distance < ? ORDER BY distance",
@@ -71,6 +73,12 @@ pub async fn query_photograph(
 
     let ids: Vec<i64> = photo_ids.into_iter().map(|(id,)| id).collect();
     let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+    let ranking_order = ids
+        .iter()
+        .enumerate()
+        .map(|(index, id)| format!("WHEN {} THEN {}", id, index))
+        .collect::<Vec<_>>()
+        .join(" ");
     let sql = format!(
         "SELECT
             p.file_path as path,
@@ -88,7 +96,9 @@ pub async fn query_photograph(
         FROM photograph p
         LEFT JOIN camera c ON p.camera_id = c.id
         LEFT JOIN lens l ON p.lens_id = l.id
-        WHERE p.id IN ({placeholders})"
+        WHERE p.id IN ({placeholders})
+        ORDER BY CASE p.id {ranking_order} ELSE {} END",
+        ids.len()
     );
 
     let mut q = sqlx::query_as::<_, PhotographMeta>(&sql);
