@@ -1,12 +1,16 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
 use exif::{In, Tag};
-use open_clip_inference::VisionEmbedder;
 use sqlx::{Pool, QueryBuilder, Sqlite};
 use std::path::Path;
 use tauri::{AppHandle, Emitter};
 use zerocopy::IntoBytes;
 
-use crate::models::{PhotographMeta, ScanResult, ScanUpdate};
+use std::sync::Mutex;
+
+use crate::{
+    clip::model::ClipModel,
+    models::{PhotographMeta, ScanResult, ScanUpdate},
+};
 
 fn exif_string(field: &exif::Field) -> String {
     let s = field.display_value().to_string();
@@ -165,7 +169,7 @@ pub async fn save_photographs(
 pub async fn embed_photographs(
     scan_result: &ScanResult,
     pool: &Pool<Sqlite>,
-    image_embeder: &VisionEmbedder,
+    image_embeder: &Mutex<ClipModel>,
     app: AppHandle,
 ) -> anyhow::Result<()> {
     let number_of_images = scan_result.images.len();
@@ -191,8 +195,10 @@ pub async fn embed_photographs(
             },
         )?;
 
-        let file = image::open(Path::new(&photo.path))?;
-        let embedding = image_embeder.embed_image(&file)?;
+        let embedding = image_embeder
+            .lock()
+            .unwrap()
+            .embed_image(Path::new(&photo.path))?;
 
         let photograph_id: Option<(i64,)> =
             sqlx::query_as("SELECT id FROM photograph WHERE file_path = ?")

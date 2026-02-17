@@ -1,8 +1,9 @@
+use std::sync::Mutex;
+
+use crate::clip;
 use crate::db;
-use open_clip_inference::{TextEmbedder, VisionEmbedder};
 
 pub struct AppState {
     pub db: db::Db,
-    pub image_embeder: VisionEmbedder,
-    pub text_embeder: TextEmbedder,
+    pub clip: Mutex<clip::model::ClipModel>,
 }

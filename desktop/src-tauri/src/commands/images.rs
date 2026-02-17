@@ -54,8 +54,9 @@ pub async fn query_photograph(
         .lock()
         .unwrap()
         .embed_text(&query)
-        .map_err(|e| MyCustomError::Anyhow(e.into()))?;
-    let embed_bytes = query_embed.as_bytes();
+        .map_err(MyCustomError::Anyhow)?;
+    let query_embed_vec = query_embed.to_vec();
+    let embed_bytes = query_embed_vec.as_bytes();
 
     let photo_ids: Vec<(i64,)> = sqlx::query_as(
         "SELECT photograph_id FROM vectors WHERE embedding MATCH ? AND k = ? and distance < ? ORDER BY distance",

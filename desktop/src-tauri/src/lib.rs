@@ -1,3 +1,4 @@
+mod clip;
 mod commands;
 mod db;
 mod error;
@@ -7,7 +8,6 @@ mod state;
 
 use crate::db::setup_db;
 use crate::state::AppState;
-use open_clip_inference::Clip;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
@@ -83,18 +83,16 @@ pub fn run() {
             });
             tauri::async_runtime::block_on(async move {
                 let db = setup_db(app).await;
-                let model_id = "RuteNL/MobileCLIP2-S2-OpenCLIP-ONNX";
-                let clip = Clip::from_hf(model_id)
-                    // .with_execution_providers(&[CoreML::default().build()])
-                    .build()
-                    .await?;
-                let image_embeder = clip.vision;
-                let text_embeder = clip.text;
+                let model_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../.models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K");
+                let clip = clip::model::ClipModel::new(
+                    &model_dir.join("model.onnx"),
+                    &model_dir.join("tokenizer.json"),
+                )?;
 
                 app.manage(AppState {
                     db,
-                    image_embeder,
-                    text_embeder,
+                    clip: std::sync::Mutex::new(clip),
                 });
                 Ok::<(), Box<dyn std::error::Error>>(())
             })?;
