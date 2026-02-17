@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS "project_photograph" (
 );
 
 CREATE VIRTUAL TABLE vectors USING vec0(
-    embedding float[512],
+    embedding float[512] distance_metric=cosine,
     +photograph_id INTEGER NOT NULL
 );
 
