@@ -2,6 +2,8 @@
 
 Luminus is a photography workspace that makes your entire library discoverable through semantic search, so you can move from memory to selection in seconds.
 
+![demo](./assets/demo.gif)
+
 It features:
 
   1. Semantic search that surfaces images by content and meaning
