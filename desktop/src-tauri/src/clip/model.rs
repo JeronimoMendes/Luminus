@@ -1,4 +1,4 @@
-use ort::ep::{CoreML, ExecutionProvider};
+use ort::ep::{CoreML, ExecutionProvider, XNNPACK};
 use ort::session::builder::GraphOptimizationLevel;
 use std::path::Path;
 
@@ -16,14 +16,14 @@ pub struct ClipModel {
 
 impl ClipModel {
     pub fn new(model_path: &Path, tokenizer_path: &Path) -> anyhow::Result<Self> {
-        log::info!("CoreML available: {:?}", CoreML::default().is_available());
-        log::info!(
+        log::debug!("CoreML available: {:?}", XNNPACK::default().is_available());
+        log::debug!(
             "CoreML supported on platform: {}",
-            CoreML::default().supported_by_platform()
+            XNNPACK::default().supported_by_platform()
         );
         let session = ort::session::Session::builder()?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_execution_providers([CoreML::default().build()])?
+            .with_execution_providers([XNNPACK::default().build()])?
             .with_intra_threads(4)?
             .commit_from_file(model_path)?;
 
@@ -133,14 +133,57 @@ impl ClipModel {
         let normalized = normalize_embed(embedding);
         Ok(normalized)
     }
+
+    pub fn batch_embed_images(
+        &mut self,
+        image_paths: Vec<&Path>,
+    ) -> anyhow::Result<Vec<ndarray::Array1<f32>>> {
+        let mut timer = timelog::Timer::new();
+        timer.time("preprocess_image");
+        let arrays: Vec<ndarray::Array4<f32>> = image_paths
+            .iter()
+            .map(|p| self.preprocess_image(p))
+            .collect::<anyhow::Result<_>>()?;
+        let views: Vec<_> = arrays.iter().map(|a| a.view()).collect();
+        let pixel_values = ndarray::concatenate(ndarray::Axis(0), &views)?;
+        log::info!(
+            "Preprocessing {} images took {} ms",
+            image_paths.len(),
+            timer.time_end("preprocess_image", true)
+        );
+        // let pixel_values = self.preprocess_image(image_path)?;
+        // dummy text inputs — not used for image, but required by the model
+        let input_ids = ndarray::Array2::<i64>::zeros((1, CONTEXT_LENGTH));
+        let attention_mask = ndarray::Array2::<i64>::zeros((1, CONTEXT_LENGTH));
+
+        let input_ids = ort::value::Tensor::from_array(input_ids)?;
+        let attention_mask = ort::value::Tensor::from_array(attention_mask)?;
+        let pixel_values = ort::value::Tensor::from_array(pixel_values)?;
+
+        let outputs = self.session.run(
+            ort::inputs!["input_ids" => input_ids, "pixel_values" => pixel_values, "attention_mask" => attention_mask],
+        )?;
+
+        let (shape, embedding_data) = outputs["image_embeds"].try_extract_tensor::<f32>()?;
+        let batch = shape[0] as usize;
+        let dim = shape[1] as usize;
+
+        let embeds = ndarray::Array2::from_shape_vec((batch, dim), embedding_data.to_vec())?;
+
+        let normalized: Vec<ndarray::Array1<f32>> = embeds
+            .axis_iter(ndarray::Axis(0))
+            .map(|row| normalize_embed(row.to_owned()))
+            .collect();
+        Ok(normalized)
+    }
 }
 
 fn normalize_embed(embedding: ndarray::Array1<f32>) -> ndarray::Array1<f32> {
     let norm = embedding.dot(&embedding).sqrt();
-    log::info!("Image embedding norm before normalization: {}", norm);
+    log::debug!("Image embedding norm before normalization: {}", norm);
     let normalized = embedding / norm;
     let post_norm = normalized.dot(&normalized).sqrt();
-    log::info!("Image embedding norm after normalization: {}", post_norm);
+    log::debug!("Image embedding norm after normalization: {}", post_norm);
 
     normalized
 }

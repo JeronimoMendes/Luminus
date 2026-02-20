@@ -173,6 +173,23 @@ pub async fn embed_photographs(
     app: AppHandle,
 ) -> anyhow::Result<()> {
     let number_of_images = scan_result.images.len();
+
+    let paths: Vec<&Path> = scan_result
+        .images
+        .iter()
+        .map(|sr| Path::new(&sr.path))
+        .collect();
+
+    log::info!("Starting to embed {} images", number_of_images);
+    let mut timer = timelog::Timer::new();
+    timer.time("embeds");
+    let embeds = image_embeder.lock().unwrap().batch_embed_images(paths)?;
+    log::info!(
+        "Embedings for {} images took {} ms",
+        number_of_images,
+        timer.time_end("embeds", true)
+    );
+
     for (i, photo) in scan_result.images.iter().enumerate() {
         let images_scanned: Vec<PhotographMeta>;
         let images_to_scan: Vec<PhotographMeta>;
@@ -195,10 +212,7 @@ pub async fn embed_photographs(
             },
         )?;
 
-        let embedding = image_embeder
-            .lock()
-            .unwrap()
-            .embed_image(Path::new(&photo.path))?;
+        let embedding = &embeds[i];
 
         let photograph_id: Option<(i64,)> =
             sqlx::query_as("SELECT id FROM photograph WHERE file_path = ?")

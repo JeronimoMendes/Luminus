@@ -1,5 +1,5 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FolderKanban, HardDrive, ImageIcon, Plus, Tag } from "lucide-react";
+import { HardDrive, ImageIcon, Plus } from "lucide-react";
 
 type NavItem = "library" | "semantic";
 

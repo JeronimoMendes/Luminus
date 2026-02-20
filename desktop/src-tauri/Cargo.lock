@@ -2803,6 +2803,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-sql",
  "thiserror 2.0.18",
+ "timelog",
  "tokenizers",
  "zerocopy",
 ]
@@ -5905,6 +5906,16 @@ checksum = "2e70e4c5a0e0a8a4823ad65dfe1a6930e4f4d756dcd9dd7939022b5e8c501215"
 dependencies = [
  "num-conv",
  "time-core",
+]
+
+[[package]]
+name = "timelog"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ab006a6038a09d1766ab01da5c33c67ab522e398d6a3b798127fa91f73a583f"
+dependencies = [
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]

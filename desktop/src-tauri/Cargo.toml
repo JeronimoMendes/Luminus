@@ -37,9 +37,10 @@ libsqlite3-sys = { version = "0.30.1", features = ["bundled"] }
 chrono = { version = "0.4.43", features = ["serde"] }
 zerocopy = "0.8.39"
 image = "0.25.9"
-ort = { version = "2.0.0-rc.11", features = ["coreml"] }
+ort = { version = "2.0.0-rc.11", features = ["coreml", "xnnpack"] }
 tokenizers = "0.22.2"
 ndarray = "0.17.2"
+timelog = "1.0.7"
 
 # this optimizes all dependencies otherwise
 # inference is slow as fuck on dev
