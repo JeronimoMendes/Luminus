@@ -114,26 +114,6 @@ impl ClipModel {
         Ok(input_data)
     }
 
-    pub fn embed_image(&mut self, image_path: &Path) -> anyhow::Result<ndarray::Array1<f32>> {
-        let pixel_values = self.preprocess_image(image_path)?;
-        // dummy text inputs — not used for image, but required by the model
-        let input_ids = ndarray::Array2::<i64>::zeros((1, CONTEXT_LENGTH));
-        let attention_mask = ndarray::Array2::<i64>::zeros((1, CONTEXT_LENGTH));
-
-        let input_ids = ort::value::Tensor::from_array(input_ids)?;
-        let attention_mask = ort::value::Tensor::from_array(attention_mask)?;
-        let pixel_values = ort::value::Tensor::from_array(pixel_values)?;
-
-        let outputs = self.session.run(
-            ort::inputs!["input_ids" => input_ids, "pixel_values" => pixel_values, "attention_mask" => attention_mask],
-        )?;
-
-        let (_, embedding_data) = outputs["image_embeds"].try_extract_tensor::<f32>()?;
-        let embedding = ndarray::Array1::from_vec(embedding_data.to_vec());
-        let normalized = normalize_embed(embedding);
-        Ok(normalized)
-    }
-
     pub fn batch_embed_images(
         &mut self,
         image_paths: Vec<&Path>,
