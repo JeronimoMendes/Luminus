@@ -42,6 +42,7 @@ tokenizers = "0.22.2"
 ndarray = "0.17.2"
 timelog = "1.0.7"
 rayon = "1.11.0"
+mp4 = "0.10"
 
 # this optimizes all dependencies otherwise
 # inference is slow as fuck on dev

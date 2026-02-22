@@ -13,15 +13,13 @@ import {
 	type SearchSettings,
 } from "@/settings";
 import { api } from "./api";
-import type { PhotographMeta } from "./api/types";
+import type { MediaItem } from "./api/types";
 
 const emptyFilters: Filters = { camera: [], lens: [], iso: [] };
 
 function App() {
-	const [images, setImages] = useState<PhotographMeta[]>([]);
-	const [selectedImage, setSelectedImage] = useState<PhotographMeta | null>(
-		null,
-	);
+	const [media, setMedia] = useState<MediaItem[]>([]);
+	const [selectedImage, setSelectedImage] = useState<MediaItem | null>(null);
 	const [search, setSearch] = useState("");
 	const [filterOpen, setFilterOpen] = useState(false);
 	const [filters, setFilters] = useState<Filters>(emptyFilters);
@@ -34,48 +32,62 @@ function App() {
 		const cameras = new Set<string>();
 		const lenses = new Set<string>();
 		const isos = new Set<string>();
-		for (const img of images) {
-			const cam = [img.camera_maker, img.camera_model]
+		for (const item of media) {
+			if (item.type !== "image") continue;
+			const cam = [item.camera_maker, item.camera_model]
 				.filter(Boolean)
 				.join(" ");
 			if (cam) cameras.add(cam);
-			const lens = [img.lens_maker, img.lens_model].filter(Boolean).join(" ");
+			const lens = [item.lens_maker, item.lens_model].filter(Boolean).join(" ");
 			if (lens) lenses.add(lens);
-			if (img.iso) isos.add(img.iso);
+			if (item.iso) isos.add(item.iso);
 		}
 		return {
 			cameras: [...cameras].sort(),
 			lenses: [...lenses].sort(),
 			isos: [...isos].sort((a, b) => Number(a) - Number(b)),
 		};
-	}, [images]);
+	}, [media]);
 
 	const filteredImages = useMemo(() => {
 		const hasFilters =
 			filters.camera.length > 0 ||
 			filters.lens.length > 0 ||
 			filters.iso.length > 0;
-		if (!hasFilters) return images;
-		return images.filter((img) => {
-			const cam = [img.camera_maker, img.camera_model]
+		if (!hasFilters) return media;
+		return media.filter((item) => {
+			if (item.type === "video") return true;
+			const cam = [item.camera_maker, item.camera_model]
 				.filter(Boolean)
 				.join(" ");
-			const lens = [img.lens_maker, img.lens_model].filter(Boolean).join(" ");
+			const lens = [item.lens_maker, item.lens_model].filter(Boolean).join(" ");
 			if (filters.camera.length > 0 && !filters.camera.includes(cam))
 				return false;
 			if (filters.lens.length > 0 && !filters.lens.includes(lens)) return false;
-			if (filters.iso.length > 0 && !filters.iso.includes(img.iso))
+			if (filters.iso.length > 0 && !filters.iso.includes(item.iso))
 				return false;
 			return true;
 		});
-	}, [images, filters]);
+	}, [media, filters]);
 
 	const activeFilterCount =
 		filters.camera.length + filters.lens.length + filters.iso.length;
 
 	const loadImages = useCallback(async () => {
-		const all = await api.getAllImages();
-		setImages(all);
+		const [images, videos] = await Promise.all([
+			api.getAllImages(),
+			api.getAllVideos(),
+		]);
+		const merged: MediaItem[] = [
+			...images.map((img) => ({ ...img, type: "image" as const })),
+			...videos.map((vid) => ({ ...vid, type: "video" as const })),
+		];
+		merged.sort((a, b) => {
+			const da = a.datetime ?? "";
+			const db = b.datetime ?? "";
+			return db.localeCompare(da);
+		});
+		setMedia(merged);
 	}, []);
 
 	useEffect(() => {
@@ -108,7 +120,7 @@ function App() {
 					settings.queryLimit,
 					settings.distanceThreshold,
 				);
-				setImages(results);
+				setMedia(results.map((img) => ({ ...img, type: "image" as const })));
 			} catch (e) {
 				console.error("query_photograph failed:", e);
 			}
@@ -144,7 +156,10 @@ function App() {
 					onImport={handlePickFolder}
 				/>
 				<div className="flex-1 min-h-0 bg-card relative">
-					<ContentHeader photoCount={filteredImages.length} />
+					<ContentHeader
+						photoCount={filteredImages.filter((i) => i.type === "image").length}
+						videoCount={filteredImages.filter((i) => i.type === "video").length}
+					/>
 					{filteredImages.length > 0 ? (
 						<div className="h-[calc(100%-88px)]">
 							<ImageGrid

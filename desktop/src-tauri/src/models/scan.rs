@@ -1,9 +1,11 @@
 use super::image::PhotographMeta;
+use super::video::VideoMeta;
 use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct ScanResult {
     pub images: Vec<PhotographMeta>,
+    pub videos: Vec<VideoMeta>,
 }
 
 #[derive(Clone, Serialize)]

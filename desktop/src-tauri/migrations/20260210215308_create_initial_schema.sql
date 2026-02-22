@@ -60,6 +60,20 @@ CREATE VIRTUAL TABLE vectors USING vec0(
     +photograph_id INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS video (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    file_path TEXT NOT NULL UNIQUE,
+    filename TEXT NOT NULL,
+    duration_secs REAL,
+    width INTEGER,
+    height INTEGER,
+    fps REAL,
+    video_codec TEXT,
+    audio_codec TEXT,
+    bitrate INTEGER,
+    datetime TIMESTAMP
+);
+
 CREATE TRIGGER delete_photograph_vectors
 AFTER DELETE ON photograph
 BEGIN

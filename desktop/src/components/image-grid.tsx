@@ -1,31 +1,38 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { Play } from "lucide-react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
-import type { PhotographMeta } from "@/api/types";
+import type { MediaItem } from "@/api/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ImageGridProps {
-	images: PhotographMeta[];
-	selected: PhotographMeta | null;
-	onSelect: (img: PhotographMeta) => void;
+	images: MediaItem[];
+	selected: MediaItem | null;
+	onSelect: (item: MediaItem) => void;
 	onClose: () => void;
 	preserveSearchOrder?: boolean;
 }
 
-function groupByDate(
-	images: PhotographMeta[],
-): { label: string; date: string; images: PhotographMeta[] }[] {
-	const groups = new Map<string, PhotographMeta[]>();
+function formatDuration(secs: number): string {
+	const m = Math.floor(secs / 60);
+	const s = Math.floor(secs % 60);
+	return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
-	for (const img of images) {
-		const dateKey = img.datetime
-			? img.datetime.split(/[T ]/)[0] || "Unknown"
+function groupByDate(
+	items: MediaItem[],
+): { label: string; date: string; items: MediaItem[] }[] {
+	const groups = new Map<string, MediaItem[]>();
+
+	for (const item of items) {
+		const dateKey = item.datetime
+			? item.datetime.split(/[T ]/)[0] || "Unknown"
 			: "Unknown";
 		const existing = groups.get(dateKey);
 		if (existing) {
-			existing.push(img);
+			existing.push(item);
 		} else {
-			groups.set(dateKey, [img]);
+			groups.set(dateKey, [item]);
 		}
 	}
 
@@ -47,41 +54,88 @@ function groupByDate(
 				/* keep raw key */
 			}
 		}
-		return { label, date: dateKey, images: imgs };
+		return { label, date: dateKey, items: imgs };
 	});
 }
 
-function PhotoCard({
-	img,
+function MediaCard({
+	item,
 	onClick,
 }: {
-	img: PhotographMeta;
+	item: MediaItem;
 	onClick: () => void;
 }) {
 	const [hovered, setHovered] = useState(false);
 
+	const width = item.width;
+	const height = item.height;
+	const aspectRatio = width && height ? `${width}/${height}` : "3/2";
+
+	if (item.type === "video") {
+		const thumbSrc = item.thumbnail_path
+			? convertFileSrc(item.thumbnail_path)
+			: null;
+
+		return (
+			<div
+				className="relative h-[198px] shrink-0 cursor-pointer overflow-hidden rounded-[14px] bg-muted"
+				style={{ aspectRatio }}
+				onClick={onClick}
+				onMouseEnter={() => setHovered(true)}
+				onMouseLeave={() => setHovered(false)}
+			>
+				{thumbSrc ? (
+					<img
+						src={thumbSrc}
+						alt={item.filename}
+						className="h-full w-full object-cover"
+						loading="lazy"
+					/>
+				) : (
+					<div className="h-full w-full bg-muted flex items-center justify-center">
+						<Play className="w-8 h-8 text-muted-foreground" />
+					</div>
+				)}
+				<div className="absolute inset-0 flex items-center justify-center">
+					<div className="bg-black/40 rounded-full p-2">
+						<Play className="w-5 h-5 text-white fill-white" />
+					</div>
+				</div>
+				{item.duration_secs != null && (
+					<div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded">
+						{formatDuration(item.duration_secs)}
+					</div>
+				)}
+				{hovered && (
+					<div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent flex items-end px-3 pb-2">
+						<span className="text-white text-xs font-medium truncate">
+							{item.filename}
+						</span>
+					</div>
+				)}
+			</div>
+		);
+	}
+
 	return (
 		<div
 			className="relative h-[198px] shrink-0 cursor-pointer overflow-hidden rounded-[14px] bg-muted"
-			style={{
-				aspectRatio:
-					img.width && img.height ? `${img.width}/${img.height}` : "3/2",
-			}}
+			style={{ aspectRatio }}
 			onClick={onClick}
 			onMouseEnter={() => setHovered(true)}
 			onMouseLeave={() => setHovered(false)}
 		>
 			<motion.img
-				layoutId={img.path}
-				src={convertFileSrc(img.path)}
-				alt={img.filename}
+				layoutId={item.path}
+				src={convertFileSrc(item.path)}
+				alt={item.filename}
 				className="h-full w-full object-cover"
 				loading="lazy"
 			/>
 			{hovered && (
 				<div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent flex items-end px-3 pb-2">
 					<span className="text-white text-xs font-medium truncate">
-						{img.filename}
+						{item.filename}
 					</span>
 				</div>
 			)}
@@ -119,11 +173,11 @@ export function ImageGrid({
 					{preserveSearchOrder ? (
 						<div className="px-8 pb-8">
 							<div className="flex flex-wrap gap-2">
-								{images.map((img) => (
-									<PhotoCard
-										key={img.path}
-										img={img}
-										onClick={() => onSelect(img)}
+								{images.map((item) => (
+									<MediaCard
+										key={item.path}
+										item={item}
+										onClick={() => onSelect(item)}
 									/>
 								))}
 							</div>
@@ -136,11 +190,11 @@ export function ImageGrid({
 										{group.label}
 									</h3>
 									<div className="flex flex-wrap gap-2">
-										{group.images.map((img) => (
-											<PhotoCard
-												key={img.path}
-												img={img}
-												onClick={() => onSelect(img)}
+										{group.items.map((item) => (
+											<MediaCard
+												key={item.path}
+												item={item}
+												onClick={() => onSelect(item)}
 											/>
 										))}
 									</div>
@@ -161,14 +215,29 @@ export function ImageGrid({
 						exit={{ backgroundColor: "rgba(0,0,0,0)" }}
 						transition={{ duration: 0.3 }}
 					>
-						<motion.img
-							layoutId={selected.path}
-							src={convertFileSrc(selected.path)}
-							alt={selected.filename}
-							className="max-h-[80vh] max-w-[90vw] object-contain rounded-lg"
-							onClick={(e) => e.stopPropagation()}
-							transition={{ type: "spring", stiffness: 300, damping: 30 }}
-						/>
+						{selected.type === "video" ? (
+							<motion.video
+								controls
+								autoPlay
+								preload="auto"
+								src={convertFileSrc(selected.path)}
+								className="max-h-[80vh] max-w-[90vw] rounded-lg"
+								onClick={(e) => e.stopPropagation()}
+								initial={{ opacity: 0, scale: 0.95 }}
+								animate={{ opacity: 1, scale: 1 }}
+								exit={{ opacity: 0, scale: 0.95 }}
+								transition={{ type: "spring", stiffness: 300, damping: 30 }}
+							/>
+						) : (
+							<motion.img
+								layoutId={selected.path}
+								src={convertFileSrc(selected.path)}
+								alt={selected.filename}
+								className="max-h-[80vh] max-w-[90vw] object-contain rounded-lg"
+								onClick={(e) => e.stopPropagation()}
+								transition={{ type: "spring", stiffness: 300, damping: 30 }}
+							/>
+						)}
 						<motion.div
 							className="mt-4 text-center text-white"
 							initial={{ opacity: 0, y: 10 }}
@@ -183,22 +252,30 @@ export function ImageGrid({
 									{selected.width}×{selected.height}
 								</p>
 							)}
-							{(selected.camera_model || selected.lens_model) && (
+							{selected.type === "image" &&
+								(selected.camera_model || selected.lens_model) && (
+									<p className="text-xs text-white/60">
+										{[selected.camera_model, selected.lens_model]
+											.filter(Boolean)
+											.join(" · ")}
+									</p>
+								)}
+							{selected.type === "image" &&
+								(selected.aperture || selected.iso || selected.exposure) && (
+									<p className="text-xs text-white/60">
+										{[
+											selected.aperture && `f/${selected.aperture}`,
+											selected.iso && `ISO ${selected.iso}`,
+											selected.exposure && `${selected.exposure}s`,
+										]
+											.filter(Boolean)
+											.join(" · ")}
+									</p>
+								)}
+							{selected.type === "video" && selected.duration_secs != null && (
 								<p className="text-xs text-white/60">
-									{[selected.camera_model, selected.lens_model]
-										.filter(Boolean)
-										.join(" · ")}
-								</p>
-							)}
-							{(selected.aperture || selected.iso || selected.exposure) && (
-								<p className="text-xs text-white/60">
-									{[
-										selected.aperture && `f/${selected.aperture}`,
-										selected.iso && `ISO ${selected.iso}`,
-										selected.exposure && `${selected.exposure}s`,
-									]
-										.filter(Boolean)
-										.join(" · ")}
+									{formatDuration(selected.duration_secs)}
+									{selected.video_codec && ` · ${selected.video_codec}`}
 								</p>
 							)}
 						</motion.div>

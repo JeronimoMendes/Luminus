@@ -12,6 +12,40 @@ use crate::{
     models::{PhotographMeta, ScanResult, ScanUpdate},
 };
 
+pub async fn save_videos(scan_result: &ScanResult, pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+    if scan_result.videos.is_empty() {
+        return Ok(());
+    }
+
+    let mut qb: QueryBuilder<Sqlite> = QueryBuilder::new(
+        "INSERT OR IGNORE INTO video \
+        (file_path, filename, duration_secs, width, height, fps, video_codec, audio_codec, bitrate, datetime) \
+        VALUES ",
+    );
+    for (i, video) in scan_result.videos.iter().enumerate() {
+        if i > 0 {
+            qb.push(", ");
+        }
+        qb.push("(");
+        qb.push_bind(&video.path);
+        qb.push(", ").push_bind(&video.filename);
+        qb.push(", ").push_bind(video.duration_secs);
+        qb.push(", ").push_bind(video.width);
+        qb.push(", ").push_bind(video.height);
+        qb.push(", ").push_bind(video.fps);
+        qb.push(", ").push_bind(&video.video_codec);
+        qb.push(", ").push_bind(&video.audio_codec);
+        qb.push(", ").push_bind(video.bitrate);
+        qb.push(", ")
+            .push_bind(video.datetime.map(|dt| dt.timestamp()));
+        qb.push(")");
+    }
+    qb.build().execute(pool).await?;
+
+    log::info!("Saved {} videos to database", scan_result.videos.len());
+    Ok(())
+}
+
 fn exif_string(field: &exif::Field) -> String {
     let s = field.display_value().to_string();
     s.trim_matches('"').to_string()
@@ -113,6 +147,10 @@ pub async fn save_photographs(
     scan_result: &ScanResult,
     pool: &Pool<Sqlite>,
 ) -> Result<(), sqlx::Error> {
+    if scan_result.images.is_empty() {
+        return Ok(());
+    }
+
     // Batch insert cameras
     let mut cam_qb: QueryBuilder<Sqlite> =
         QueryBuilder::new("INSERT OR IGNORE INTO camera (maker, model) ");

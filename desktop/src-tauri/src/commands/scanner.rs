@@ -1,9 +1,9 @@
 use crate::error::MyCustomError;
 use crate::models::{ScanResult, ScanStarted};
-use crate::scanner::{metadata, walker};
+use crate::scanner::{metadata, thumbnail, walker};
 use crate::state::AppState;
 use std::path::Path;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 #[tauri::command]
 pub async fn scan_folder(
@@ -25,6 +25,20 @@ pub async fn scan_folder(
     metadata::save_photographs(&results, &state.db)
         .await
         .map_err(MyCustomError::from)?;
+
+    metadata::save_videos(&results, &state.db)
+        .await
+        .map_err(MyCustomError::from)?;
+
+    if let Ok(data_dir) = app.path().app_data_dir() {
+        let thumbnails_dir = data_dir.join("thumbnails");
+        for video in &results.videos {
+            let video_path = Path::new(&video.path);
+            if let Err(e) = thumbnail::generate_thumbnail(video_path, &thumbnails_dir) {
+                log::warn!("Could not generate thumbnail for {}: {}", video.path, e);
+            }
+        }
+    }
 
     metadata::embed_photographs(&results, &state.db, &state.clip, app)
         .await

@@ -101,6 +101,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::scanner::scan_folder,
             commands::images::get_all_images,
+            commands::images::get_all_videos,
             commands::images::query_photograph,
         ])
         .run(tauri::generate_context!())
