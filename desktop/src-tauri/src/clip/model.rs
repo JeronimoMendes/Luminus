@@ -1,5 +1,6 @@
-use ort::ep::{CoreML, ExecutionProvider, XNNPACK};
+use ort::ep::{ExecutionProvider, XNNPACK};
 use ort::session::builder::GraphOptimizationLevel;
+use rayon::prelude::*;
 use std::path::Path;
 
 const CONTEXT_LENGTH: usize = 77;
@@ -88,13 +89,25 @@ impl ClipModel {
         Ok(normalized)
     }
 
+    fn batch_preprocess_images(
+        &self,
+        image_paths: &Vec<&Path>,
+    ) -> anyhow::Result<Vec<ndarray::Array4<f32>>> {
+        let preprocessed_images: Vec<ndarray::Array4<f32>> = image_paths
+            .par_iter()
+            .map(|p| self.preprocess_image(p))
+            .collect::<anyhow::Result<_>>()?;
+
+        Ok(preprocessed_images)
+    }
+
     fn preprocess_image(&self, image_path: &Path) -> anyhow::Result<ndarray::Array4<f32>> {
         let mut img = image::open(image_path)?;
 
         img = img.resize_exact(
             IMAGE_SIZE,
             IMAGE_SIZE,
-            image::imageops::FilterType::Lanczos3,
+            image::imageops::FilterType::Triangle,
         );
 
         let rgb_img = img.to_rgb8();
@@ -120,10 +133,7 @@ impl ClipModel {
     ) -> anyhow::Result<Vec<ndarray::Array1<f32>>> {
         let mut timer = timelog::Timer::new();
         timer.time("preprocess_image");
-        let arrays: Vec<ndarray::Array4<f32>> = image_paths
-            .iter()
-            .map(|p| self.preprocess_image(p))
-            .collect::<anyhow::Result<_>>()?;
+        let arrays: Vec<ndarray::Array4<f32>> = self.batch_preprocess_images(&image_paths)?;
         let views: Vec<_> = arrays.iter().map(|a| a.view()).collect();
         let pixel_values = ndarray::concatenate(ndarray::Axis(0), &views)?;
         log::info!(
