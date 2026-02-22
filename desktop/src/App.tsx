@@ -119,19 +119,13 @@ function App() {
 		};
 	}, [search, settings, loadImages]);
 
-	const preScanImages = useRef<PhotographMeta[]>([]);
-
-	const handleScanProgress = useCallback((scanned: PhotographMeta[]) => {
-		// Merge existing images (before this scan) with newly completed ones
-		const existingPaths = new Set(preScanImages.current.map((i) => i.path));
-		const newPhotos = scanned.filter((p) => !existingPaths.has(p.path));
-		setImages([...preScanImages.current, ...newPhotos]);
-	}, []);
+	const handleScanProgress = useCallback(() => {
+		loadImages();
+	}, [loadImages]);
 
 	const handlePickFolder = async () => {
 		const selected = await open({ directory: true });
 		if (selected) {
-			preScanImages.current = images;
 			await api.scanFolder(selected);
 			await loadImages();
 		}

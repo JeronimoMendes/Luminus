@@ -15,7 +15,8 @@ pub struct ScanStarted {
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScanUpdate {
-    pub current_image_path: String,
-    pub images_scanned: Vec<PhotographMeta>,
-    pub images_to_scan: Vec<PhotographMeta>,
+    pub current_batch: usize,
+    pub total_batches: usize,
+    pub images_scanned: usize,
+    pub images_to_scan: usize,
 }

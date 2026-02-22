@@ -1,66 +1,64 @@
 import { listen } from "@tauri-apps/api/event";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import type { PhotographMeta } from "@/api/types";
+import { useEffect, useState } from "react";
 
 interface ScanStarted {
 	totalImages: number;
 }
 
 interface ScanUpdate {
-	currentImagePath: string;
-	imagesScanned: PhotographMeta[];
-	imagesToScan: PhotographMeta[];
+	currentBatch: number;
+	totalBatches: number;
+	imagesScanned: number;
+	imagesToScan: number;
 }
 
 interface ScanState {
 	active: boolean;
 	totalImages: number;
-	currentImagePath: string;
-	scanned: PhotographMeta[];
-	remaining: PhotographMeta[];
+	currentBatch: number;
+	totalBatches: number;
+	imagesScanned: number;
+	imagesToScan: number;
 }
 
 const initialState: ScanState = {
 	active: false,
 	totalImages: 0,
-	currentImagePath: "",
-	scanned: [],
-	remaining: [],
+	currentBatch: 0,
+	totalBatches: 0,
+	imagesScanned: 0,
+	imagesToScan: 0,
 };
 
-function filenameFromPath(path: string) {
-	return path.split(/[/\\]/).pop() ?? path;
-}
-
 interface ImportQueueProps {
-	onScanProgress?: (scanned: PhotographMeta[]) => void;
+	onScanProgress?: () => void;
 }
 
 export function ImportQueue({ onScanProgress }: ImportQueueProps) {
 	const [state, setState] = useState<ScanState>(initialState);
 	const [collapsed, setCollapsed] = useState(false);
-	const prevScannedCount = useRef(0);
 
 	useEffect(() => {
 		const unlistenStarted = listen<ScanStarted>("scan-started", (e) => {
 			setState({
 				active: true,
 				totalImages: e.payload.totalImages,
-				currentImagePath: "",
-				scanned: [],
-				remaining: [],
+				currentBatch: 0,
+				totalBatches: 0,
+				imagesScanned: 0,
+				imagesToScan: e.payload.totalImages,
 			});
 			setCollapsed(false);
-			prevScannedCount.current = 0;
 		});
 
 		const unlistenUpdate = listen<ScanUpdate>("scan-update", (e) => {
 			setState((prev) => ({
 				...prev,
-				currentImagePath: e.payload.currentImagePath,
-				scanned: e.payload.imagesScanned,
-				remaining: e.payload.imagesToScan,
+				currentBatch: e.payload.currentBatch,
+				totalBatches: e.payload.totalBatches,
+				imagesScanned: e.payload.imagesScanned,
+				imagesToScan: e.payload.imagesToScan,
 			}));
 		});
 
@@ -70,26 +68,22 @@ export function ImportQueue({ onScanProgress }: ImportQueueProps) {
 		};
 	}, []);
 
-	// Notify parent with completed photos whenever a new one finishes
+	// Notify parent whenever progress updates
 	useEffect(() => {
-		if (state.scanned.length > prevScannedCount.current) {
-			prevScannedCount.current = state.scanned.length;
-			onScanProgress?.(state.scanned);
+		if (state.imagesScanned > 0) {
+			onScanProgress?.();
 		}
-	}, [state.scanned, onScanProgress]);
+	}, [state.imagesScanned, onScanProgress]);
 
-	const scannedCount = state.scanned.length;
-	const remainingCount = state.remaining.length;
-	const processingCount = state.currentImagePath ? 1 : 0;
-	const queuedCount = Math.max(0, remainingCount - processingCount);
-	const totalFiles = state.totalImages;
-	const progressPct =
-		totalFiles > 0 ? ((scannedCount + processingCount) / totalFiles) * 100 : 0;
-
-	const lastLoaded =
-		state.scanned.length > 0 ? state.scanned[state.scanned.length - 1] : null;
-
-	const isDone = scannedCount === totalFiles && totalFiles > 0;
+	const {
+		imagesScanned,
+		totalImages,
+		currentBatch,
+		totalBatches,
+		imagesToScan,
+	} = state;
+	const progressPct = totalImages > 0 ? (imagesScanned / totalImages) * 100 : 0;
+	const isDone = imagesScanned === totalImages && totalImages > 0;
 
 	const dismiss = () => setState(initialState);
 
@@ -136,7 +130,7 @@ export function ImportQueue({ onScanProgress }: ImportQueueProps) {
 				</span>
 				<div className="flex items-center gap-2">
 					<span className="text-[11px] font-semibold text-[#7B7569]">
-						{queuedCount + processingCount} left
+						{imagesToScan} left
 					</span>
 					<ChevronUp className="w-3 h-3 text-[#6F695E]" />
 				</div>
@@ -154,7 +148,7 @@ export function ImportQueue({ onScanProgress }: ImportQueueProps) {
 					</span>
 					<div className="flex items-center gap-2">
 						<span className="text-[11px] font-semibold text-[#7B7569]">
-							{totalFiles} files
+							{totalImages} files
 						</span>
 						<button
 							type="button"
@@ -174,7 +168,7 @@ export function ImportQueue({ onScanProgress }: ImportQueueProps) {
 				</div>
 
 				<span className="text-[11px] font-medium text-[#7B7569]">
-					All {totalFiles} files imported successfully
+					All {totalImages} files imported successfully
 				</span>
 
 				<span className="text-xs font-semibold text-[#2B8A57]">
@@ -199,10 +193,10 @@ export function ImportQueue({ onScanProgress }: ImportQueueProps) {
 
 	// --- Expanded In-Progress ---
 	const summaryParts: string[] = [];
-	if (scannedCount > 0) summaryParts.push(`${scannedCount} loaded`);
-	if (processingCount > 0) summaryParts.push(`${processingCount} processing`);
-	if (queuedCount > 0) summaryParts.push(`${queuedCount} queued`);
-	const summaryText = summaryParts.join(" - ");
+	if (imagesScanned > 0) summaryParts.push(`${imagesScanned} loaded`);
+	if (totalBatches > 0)
+		summaryParts.push(`batch ${currentBatch}/${totalBatches}`);
+	const summaryText = summaryParts.join(" — ");
 
 	return (
 		<div className="rounded-[14px] bg-white border border-[#E5E3DD] p-3 w-full shadow-[0_10px_24px_rgba(0,0,0,0.12)] flex flex-col gap-2.5">
@@ -212,7 +206,7 @@ export function ImportQueue({ onScanProgress }: ImportQueueProps) {
 				</span>
 				<div className="flex items-center gap-2">
 					<span className="text-[11px] font-semibold text-[#7B7569]">
-						{totalFiles} files
+						{totalImages} files
 					</span>
 					<button
 						type="button"
@@ -228,16 +222,10 @@ export function ImportQueue({ onScanProgress }: ImportQueueProps) {
 				{summaryText}
 			</span>
 
-			{lastLoaded && (
-				<span className="text-xs font-semibold text-[#2B8A57]">
-					Loaded: {filenameFromPath(lastLoaded.path)}
-				</span>
-			)}
-
-			{state.currentImagePath && (
+			{currentBatch > 0 && currentBatch < totalBatches && (
 				<div className="flex items-center justify-between w-full">
 					<span className="text-xs font-semibold text-[#1F1D19]">
-						Processing: {filenameFromPath(state.currentImagePath)}
+						Processing batch {currentBatch + 1} of {totalBatches}
 					</span>
 					<span className="text-[11px] font-semibold text-[#7B7569]">
 						{Math.round(progressPct)}%
@@ -252,14 +240,14 @@ export function ImportQueue({ onScanProgress }: ImportQueueProps) {
 				/>
 			</div>
 
-			{queuedCount > 0 && (
+			{imagesToScan > 0 && (
 				<span className="text-[11px] font-medium text-[#7B7569]">
-					Queued: {queuedCount} files waiting to process
+					{imagesToScan} files remaining
 				</span>
 			)}
 
 			<span className="text-[10px] font-medium text-[#8C857A]">
-				Uploads continue in background while you browse
+				Processing continues in background while you browse
 			</span>
 		</div>
 	);

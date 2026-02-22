@@ -166,6 +166,8 @@ pub async fn save_photographs(
     Ok(())
 }
 
+const BATCH_SIZE: usize = 32;
+
 pub async fn embed_photographs(
     scan_result: &ScanResult,
     pool: &Pool<Sqlite>,
@@ -173,74 +175,68 @@ pub async fn embed_photographs(
     app: AppHandle,
 ) -> anyhow::Result<()> {
     let number_of_images = scan_result.images.len();
+    let chunks: Vec<&[PhotographMeta]> = scan_result.images.chunks(BATCH_SIZE).collect();
+    let total_batches = chunks.len();
+    let mut images_scanned: usize = 0;
 
-    let paths: Vec<&Path> = scan_result
-        .images
-        .iter()
-        .map(|sr| Path::new(&sr.path))
-        .collect();
-
-    log::info!("Starting to embed {} images", number_of_images);
-    let mut timer = timelog::Timer::new();
-    timer.time("embeds");
-    let embeds = image_embeder.lock().unwrap().batch_embed_images(paths)?;
     log::info!(
-        "Embedings for {} images took {} ms",
+        "Starting to embed {} images in {} batches of {}",
         number_of_images,
-        timer.time_end("embeds", true)
+        total_batches,
+        BATCH_SIZE
     );
 
-    for (i, photo) in scan_result.images.iter().enumerate() {
-        let images_scanned: Vec<PhotographMeta>;
-        let images_to_scan: Vec<PhotographMeta>;
-        if i == 0 {
-            images_scanned = vec![];
-            images_to_scan = scan_result.images.clone();
-        } else if i == number_of_images {
-            images_to_scan = vec![photo.clone()];
-            images_scanned = scan_result.images[0..i].to_vec();
-        } else {
-            images_scanned = scan_result.images[0..i].to_vec();
-            images_to_scan = scan_result.images[i..].to_vec();
-        }
-        app.emit(
-            "scan-update",
-            ScanUpdate {
-                current_image_path: photo.path.clone(),
-                images_scanned,
-                images_to_scan,
-            },
-        )?;
+    for (batch_idx, chunk) in chunks.iter().enumerate() {
+        let paths: Vec<&Path> = chunk.iter().map(|p| Path::new(&p.path)).collect();
 
-        let embedding = &embeds[i];
+        let mut timer = timelog::Timer::new();
+        timer.time("batch");
+        let embeds = image_embeder.lock().unwrap().batch_embed_images(paths)?;
+        log::info!(
+            "Batch {}/{} ({} images) took {} ms",
+            batch_idx + 1,
+            total_batches,
+            chunk.len(),
+            timer.time_end("batch", true)
+        );
 
-        let photograph_id: Option<(i64,)> =
-            sqlx::query_as("SELECT id FROM photograph WHERE file_path = ?")
-                .bind(&photo.path)
-                .fetch_optional(pool)
-                .await?;
+        for (i, photo) in chunk.iter().enumerate() {
+            let embedding = &embeds[i];
 
-        if let Some((photo_id,)) = photograph_id {
-            let embedding_bytes = embedding.as_slice().unwrap().as_bytes();
-            sqlx::query("INSERT OR IGNORE INTO vectors (embedding, photograph_id) VALUES (?, ?)")
+            let photograph_id: Option<(i64,)> =
+                sqlx::query_as("SELECT id FROM photograph WHERE file_path = ?")
+                    .bind(&photo.path)
+                    .fetch_optional(pool)
+                    .await?;
+
+            if let Some((photo_id,)) = photograph_id {
+                let embedding_bytes = embedding.as_slice().unwrap().as_bytes();
+                sqlx::query(
+                    "INSERT OR IGNORE INTO vectors (embedding, photograph_id) VALUES (?, ?)",
+                )
                 .bind(embedding_bytes)
                 .bind(photo_id)
                 .execute(pool)
                 .await?;
+            }
         }
+
+        images_scanned += chunk.len();
+
+        app.emit(
+            "scan-update",
+            ScanUpdate {
+                current_batch: batch_idx + 1,
+                total_batches,
+                images_scanned,
+                images_to_scan: number_of_images - images_scanned,
+            },
+        )?;
     }
-    app.emit(
-        "scan-update",
-        ScanUpdate {
-            current_image_path: "".to_string(),
-            images_to_scan: vec![],
-            images_scanned: scan_result.images.clone(),
-        },
-    )?;
 
     log::info!(
         "Embedded {} photographs into vector store",
-        scan_result.images.len()
+        number_of_images
     );
     Ok(())
 }

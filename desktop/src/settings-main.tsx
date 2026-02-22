@@ -4,7 +4,7 @@ import "./index.css";
 import { SettingsPage } from "./components/settings";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    <SettingsPage />
-  </React.StrictMode>,
+	<React.StrictMode>
+		<SettingsPage />
+	</React.StrictMode>,
 );
