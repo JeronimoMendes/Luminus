@@ -3,6 +3,9 @@ use ort::session::builder::GraphOptimizationLevel;
 use rayon::prelude::*;
 use std::path::Path;
 
+type VideoFrames = Vec<(u32, ndarray::Array4<f32>)>;
+type VideoEmbeds = Vec<(u32, ndarray::Array1<f32>)>;
+
 const CONTEXT_LENGTH: usize = 77;
 const EOT_TOKEN_ID: i64 = 49_407;
 const IMAGE_SIZE: u32 = 224;
@@ -127,6 +130,95 @@ impl ClipModel {
         Ok(input_data)
     }
 
+    pub fn preprocess_video(&self, video_path: &Path) -> anyhow::Result<VideoFrames> {
+        let mut decoder = video_rs::Decoder::new(video_path)?;
+        let fps = decoder.frame_rate() as f64;
+        let step = fps.round().max(1.0) as usize;
+
+        let frames: Vec<(u32, video_rs::Frame)> = decoder
+            .decode_iter()
+            .take_while(Result::is_ok)
+            .map(Result::unwrap)
+            .enumerate()
+            .filter(|(i, _)| i % step == 0)
+            .map(|(_, (time, frame))| (time.as_secs() as u32, frame))
+            .collect();
+
+        let preprocessed_frames: VideoFrames = frames
+            .into_par_iter()
+            .map(|(t, f)| self.preprocess_frame(f).map(|arr| (t, arr)))
+            .collect::<anyhow::Result<_>>()?;
+
+        log::info!("Preprocessed {} video frames", preprocessed_frames.len());
+
+        Ok(preprocessed_frames)
+    }
+
+    fn preprocess_frame(&self, frame: video_rs::Frame) -> anyhow::Result<ndarray::Array4<f32>> {
+        let (h, w, _) = frame.dim();
+        let (flat, _) = frame.into_raw_vec_and_offset();
+        let img = image::RgbImage::from_raw(w as u32, h as u32, flat)
+            .ok_or_else(|| anyhow::anyhow!("Failed to create image from video frame"))?;
+        let img = image::DynamicImage::ImageRgb8(img).resize_exact(
+            IMAGE_SIZE,
+            IMAGE_SIZE,
+            image::imageops::FilterType::Triangle,
+        );
+        let rgb = img.to_rgb8();
+        let mut data =
+            ndarray::Array4::<f32>::zeros((1, 3, IMAGE_SIZE as usize, IMAGE_SIZE as usize));
+        for y in 0..IMAGE_SIZE {
+            for x in 0..IMAGE_SIZE {
+                let pixel = rgb.get_pixel(x, y);
+                for c in 0..3 {
+                    data[[0, c, y as usize, x as usize]] =
+                        (pixel[c] as f32 / 255.0 - MEAN[c]) / STD[c];
+                }
+            }
+        }
+        Ok(data)
+    }
+
+    fn batch_preprocess_videos(&self, video_paths: Vec<&Path>) -> anyhow::Result<Vec<VideoFrames>> {
+        let preprocessed_videos = video_paths
+            .iter()
+            .map(|p| self.preprocess_video(p))
+            .collect::<anyhow::Result<_>>()?;
+        Ok(preprocessed_videos)
+    }
+
+    pub fn batch_embed_videos(
+        &mut self,
+        video_paths: Vec<&Path>,
+    ) -> anyhow::Result<Vec<VideoEmbeds>> {
+        let n_videos = video_paths.len();
+        let mut timer = timelog::Timer::new();
+        timer.time("preprocess_video");
+        log::info!("Starting to preprocess {} videos", n_videos);
+        let preprocessed_videos: Vec<Vec<(u32, ndarray::Array4<f32>)>> =
+            self.batch_preprocess_videos(video_paths)?;
+        log::info!(
+            "Preprocessing {} videos took {} ms",
+            n_videos,
+            timer.time_end("preprocess_video", true)
+        );
+
+        let mut embeds: Vec<Vec<(u32, ndarray::Array1<f32>)>> = Vec::new();
+        for video in preprocessed_videos {
+            let views: Vec<_> = video.iter().map(|(_t, a)| a.view()).collect();
+            let pixel_values = ndarray::concatenate(ndarray::Axis(0), &views)?;
+            let video_embeds = self.embed_images(pixel_values)?;
+            let video_embeds_w_ts: Vec<(u32, ndarray::Array1<f32>)> = video
+                .into_iter()
+                .zip(video_embeds.into_iter())
+                .map(|((ts, _), embed)| (ts, embed))
+                .collect();
+            embeds.push(video_embeds_w_ts);
+        }
+
+        Ok(embeds)
+    }
+
     pub fn batch_embed_images(
         &mut self,
         image_paths: Vec<&Path>,
@@ -141,7 +233,14 @@ impl ClipModel {
             image_paths.len(),
             timer.time_end("preprocess_image", true)
         );
-        // let pixel_values = self.preprocess_image(image_path)?;
+        let embeds: Vec<ndarray::Array1<f32>> = self.embed_images(pixel_values)?;
+        Ok(embeds)
+    }
+
+    fn embed_images(
+        &mut self,
+        pixel_values: ndarray::Array4<f32>,
+    ) -> anyhow::Result<Vec<ndarray::Array1<f32>>> {
         // dummy text inputs — not used for image, but required by the model
         let input_ids = ndarray::Array2::<i64>::zeros((1, CONTEXT_LENGTH));
         let attention_mask = ndarray::Array2::<i64>::zeros((1, CONTEXT_LENGTH));

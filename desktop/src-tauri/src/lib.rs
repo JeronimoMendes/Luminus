@@ -20,6 +20,8 @@ pub fn run() {
 
     std::env::set_var("RUST_BACKTRACE", "1");
 
+    video_rs::init().unwrap();
+
     tauri::Builder::default()
         .plugin(
             tauri_plugin_log::Builder::new()
@@ -103,6 +105,7 @@ pub fn run() {
             commands::images::get_all_images,
             commands::images::get_all_videos,
             commands::images::query_photograph,
+            commands::images::query_media,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

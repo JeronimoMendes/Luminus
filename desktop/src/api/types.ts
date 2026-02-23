@@ -29,7 +29,7 @@ export interface VideoMeta {
 
 export type MediaItem =
 	| (PhotographMeta & { type: "image" })
-	| (VideoMeta & { type: "video" });
+	| (VideoMeta & { type: "video"; matching_frames?: number[] });
 
 export interface ScanResult {
 	images: PhotographMeta[];

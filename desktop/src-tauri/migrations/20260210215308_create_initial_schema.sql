@@ -55,9 +55,16 @@ CREATE TABLE IF NOT EXISTS "project_photograph" (
     FOREIGN KEY("photograph_id") REFERENCES "photograph"("id")
 );
 
-CREATE VIRTUAL TABLE vectors USING vec0(
+CREATE VIRTUAL TABLE photo_vectors USING vec0(
     embedding float[512] distance_metric=cosine,
     +photograph_id INTEGER NOT NULL
+);
+
+CREATE VIRTUAL TABLE video_vectors USING vec0(
+    embedding float[512] distance_metric=cosine,
+    +video_id INTEGER NOT NULL,
+    +frame_timestamp INTEGER NOT NULL
+
 );
 
 CREATE TABLE IF NOT EXISTS video (
@@ -77,5 +84,5 @@ CREATE TABLE IF NOT EXISTS video (
 CREATE TRIGGER delete_photograph_vectors
 AFTER DELETE ON photograph
 BEGIN
-    DELETE FROM vectors WHERE photograph_id = OLD.id;
+    DELETE FROM photo_vectors WHERE photograph_id = OLD.id;
 END;

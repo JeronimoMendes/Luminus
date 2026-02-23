@@ -40,7 +40,7 @@ pub async fn scan_folder(
         }
     }
 
-    metadata::embed_photographs(&results, &state.db, &state.clip, app)
+    metadata::embed_media(&results, &state.db, &state.clip, app)
         .await
         .map_err(MyCustomError::from)?;
 

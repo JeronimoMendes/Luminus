@@ -9,7 +9,7 @@ use std::sync::Mutex;
 
 use crate::{
     clip::model::ClipModel,
-    models::{PhotographMeta, ScanResult, ScanUpdate},
+    models::{PhotographMeta, ScanResult, ScanUpdate, VideoMeta},
 };
 
 pub async fn save_videos(scan_result: &ScanResult, pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
@@ -206,7 +206,7 @@ pub async fn save_photographs(
 
 const BATCH_SIZE: usize = 32;
 
-pub async fn embed_photographs(
+pub async fn embed_media(
     scan_result: &ScanResult,
     pool: &Pool<Sqlite>,
     image_embeder: &Mutex<ClipModel>,
@@ -250,7 +250,7 @@ pub async fn embed_photographs(
             if let Some((photo_id,)) = photograph_id {
                 let embedding_bytes = embedding.as_slice().unwrap().as_bytes();
                 sqlx::query(
-                    "INSERT OR IGNORE INTO vectors (embedding, photograph_id) VALUES (?, ?)",
+                    "INSERT OR IGNORE INTO photo_vectors (embedding, photograph_id) VALUES (?, ?)",
                 )
                 .bind(embedding_bytes)
                 .bind(photo_id)
@@ -276,5 +276,54 @@ pub async fn embed_photographs(
         "Embedded {} photographs into vector store",
         number_of_images
     );
+
+    let number_of_videos = scan_result.videos.len();
+    let chunks: Vec<&[VideoMeta]> = scan_result.videos.chunks(BATCH_SIZE).collect();
+    let total_batches = chunks.len();
+    let mut _videos_scanned: usize = 0;
+    log::info!(
+        "Starting to embed {} videos in {} batches of {}",
+        number_of_videos,
+        total_batches,
+        BATCH_SIZE
+    );
+    for (batch_idx, chunk) in chunks.iter().enumerate() {
+        let paths: Vec<&Path> = chunk.iter().map(|p| Path::new(&p.path)).collect();
+
+        let mut timer = timelog::Timer::new();
+        timer.time("batch");
+        let embeds: Vec<Vec<(u32, ndarray::Array1<f32>)>> =
+            image_embeder.lock().unwrap().batch_embed_videos(paths)?;
+        log::info!(
+            "Batch {}/{} ({} videos) took {} ms",
+            batch_idx + 1,
+            total_batches,
+            chunk.len(),
+            timer.time_end("batch", true)
+        );
+
+        for (i, video) in chunk.iter().enumerate() {
+            let video_id: Option<(i64,)> =
+                sqlx::query_as("SELECT id FROM video WHERE file_path = ?")
+                    .bind(&video.path)
+                    .fetch_optional(pool)
+                    .await?;
+            for (ts, frame_embedding) in &embeds[i] {
+                if let Some((vid,)) = video_id {
+                    let slice: &[f32] = frame_embedding.as_slice().unwrap();
+                    let embedding_bytes = slice.as_bytes();
+                    sqlx::query(
+                        "INSERT OR IGNORE INTO video_vectors (embedding, video_id, frame_timestamp) VALUES (?, ?, ?)",
+                    )
+                    .bind(embedding_bytes)
+                    .bind(vid)
+                    .bind(ts)
+                    .execute(pool)
+                    .await?;
+                }
+            }
+        }
+    }
+
     Ok(())
 }
