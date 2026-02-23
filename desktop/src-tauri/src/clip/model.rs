@@ -132,25 +132,25 @@ impl ClipModel {
 
     pub fn preprocess_video(&self, video_path: &Path) -> anyhow::Result<VideoFrames> {
         let mut decoder = video_rs::Decoder::new(video_path)?;
-        let fps = decoder.frame_rate() as f64;
-        let step = fps.round().max(1.0) as usize;
+        let duration_secs = decoder.duration()?.as_secs_f64().ceil() as u32;
 
-        let frames: Vec<(u32, video_rs::Frame)> = decoder
-            .decode_iter()
-            .take_while(Result::is_ok)
-            .map(Result::unwrap)
-            .enumerate()
-            .filter(|(i, _)| i % step == 0)
-            .map(|(_, (time, frame))| (time.as_secs() as u32, frame))
-            .collect();
+        let mut raw_frames: Vec<(u32, video_rs::Frame)> = Vec::new();
+        for sec in 0..duration_secs {
+            let ts_ms = (sec as i64) * 1000;
+            if decoder.seek(ts_ms).is_err() {
+                continue;
+            }
+            if let Ok((_, frame)) = decoder.decode() {
+                raw_frames.push((sec, frame));
+            }
+        }
 
-        let preprocessed_frames: VideoFrames = frames
+        let preprocessed_frames: VideoFrames = raw_frames
             .into_par_iter()
             .map(|(t, f)| self.preprocess_frame(f).map(|arr| (t, arr)))
             .collect::<anyhow::Result<_>>()?;
 
         log::info!("Preprocessed {} video frames", preprocessed_frames.len());
-
         Ok(preprocessed_frames)
     }
 
