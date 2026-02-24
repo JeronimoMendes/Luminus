@@ -1,6 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { WelcomeSplash } from "@/components/welcome-splash";
 import { ContentHeader } from "@/components/content-header";
 import { FilterPanel, type Filters } from "@/components/filter-panel";
 import { ImageGrid } from "@/components/image-grid";
@@ -14,6 +15,7 @@ import type { MediaItem } from "./api/types";
 const emptyFilters: Filters = { camera: [], lens: [], iso: [] };
 
 function App() {
+  const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem("luminus-welcomed"));
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [selectedImage, setSelectedImage] = useState<MediaItem | null>(null);
   const [search, setSearch] = useState("");
@@ -124,6 +126,7 @@ function App() {
 
   return (
     <main className="h-screen flex bg-background">
+      {showWelcome && <WelcomeSplash onDone={() => setShowWelcome(false)} />}
       <Sidebar activeNav={activeNav} onNavChange={setActiveNav} />
       <div className="relative flex-1 min-w-0 h-full flex flex-col overflow-hidden">
         <TopBar
