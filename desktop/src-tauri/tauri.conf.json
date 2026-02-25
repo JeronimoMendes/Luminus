@@ -34,6 +34,10 @@
 			"icons/128x128@2x.png",
 			"icons/icon.icns",
 			"icons/icon.ico"
-		]
+		],
+		"resources": {
+			"../../.models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K/model.onnx": "models/model.onnx",
+			"../../.models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K/tokenizer.json": "models/tokenizer.json"
+		}
 	}
 }

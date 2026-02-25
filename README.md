@@ -20,6 +20,7 @@ Roadmap:
 - [Rust](https://rustup.rs/) (stable toolchain)
 - [Bun](https://bun.sh/) (package manager)
 - [Tauri CLI v2](https://tauri.app/start/prerequisites/)
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) (optional)
 
 ### Setup
 
@@ -30,6 +31,12 @@ Roadmap:
    cd luminus
    ```
 
+3. **Download CLIP model from hugging face and convert to ONNX**
+
+  ```bash
+  uvx --from "optimum[onnxruntime]" optimum-cli export onnx --model laion/CLIP-ViT-B-32-laion2B-s34B-b79K .models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K
+  ```
+
 2. **Install frontend dependencies**
 
    ```bash
@@ -37,7 +44,7 @@ Roadmap:
    bun install
    ```
 
-3. **Run in development mode**
+4. **Run in development mode**
 
    ```bash
    cargo tauri dev
