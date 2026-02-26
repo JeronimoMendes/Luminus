@@ -86,7 +86,9 @@ pub fn run() {
             tauri::async_runtime::block_on(async move {
                 let db = setup_db(app).await;
                 let (model_path, tokenizer_path) = {
-                    let resource_dir = app.path().resource_dir()
+                    let resource_dir = app
+                        .path()
+                        .resource_dir()
                         .expect("failed to resolve resource_dir");
                     let candidate = resource_dir.join("models/model.onnx");
                     if candidate.exists() {

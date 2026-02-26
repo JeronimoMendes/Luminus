@@ -7,7 +7,8 @@
 		"dev": "vite",
 		"build": "tsc && vite build",
 		"preview": "vite preview",
-		"tauri": "tauri"
+		"tauri": "tauri",
+		"fetch-ffmpeg": "bash ../scripts/fetch-ffmpeg.sh"
 	},
 	"dependencies": {
 		"@biomejs/biome": "^2.3.14",

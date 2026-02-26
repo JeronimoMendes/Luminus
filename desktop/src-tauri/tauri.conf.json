@@ -6,7 +6,7 @@
 	"build": {
 		"beforeDevCommand": "bun run dev",
 		"devUrl": "http://localhost:1420",
-		"beforeBuildCommand": "bun run build",
+		"beforeBuildCommand": "bun run fetch-ffmpeg && bun run build",
 		"frontendDist": "../dist"
 	},
 	"app": {
@@ -36,6 +36,7 @@
 			"icons/icon.ico"
 		],
 		"resources": {
+			"resources/ffmpeg": "ffmpeg",
 			"../../.models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K/model.onnx": "models/model.onnx",
 			"../../.models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K/tokenizer.json": "models/tokenizer.json"
 		}

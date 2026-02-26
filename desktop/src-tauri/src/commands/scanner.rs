@@ -32,9 +32,17 @@ pub async fn scan_folder(
 
     if let Ok(data_dir) = app.path().app_data_dir() {
         let thumbnails_dir = data_dir.join("thumbnails");
+        let ffmpeg_command =
+            thumbnail::resolve_ffmpeg_command(app.path().resource_dir().ok().as_deref());
+
+        log::info!("Using ffmpeg command '{}'", ffmpeg_command.display());
         for video in &results.videos {
             let video_path = Path::new(&video.path);
-            if let Err(e) = thumbnail::generate_thumbnail(video_path, &thumbnails_dir) {
+            if let Err(e) = thumbnail::generate_thumbnail(
+                video_path,
+                &thumbnails_dir,
+                ffmpeg_command.as_os_str(),
+            ) {
                 log::warn!("Could not generate thumbnail for {}: {}", video.path, e);
             }
         }
