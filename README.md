@@ -31,10 +31,15 @@ Roadmap:
    cd luminus
    ```
 
-3. **Download CLIP model from hugging face and convert to ONNX**
+2. **Download CLIP model from hugging face and convert to ONNX**
 
   ```bash
   uvx --from "optimum[onnxruntime]" optimum-cli export onnx --model laion/CLIP-ViT-B-32-laion2B-s34B-b79K .models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K
+  ```
+
+3. **Split the CLIP model into vision and text models**
+  ```bash
+  uvx --from "onnx" python3 scripts/split-clip.py
   ```
 
 2. **Install frontend dependencies**
