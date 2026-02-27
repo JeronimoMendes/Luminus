@@ -1,4 +1,4 @@
-use ort::ep::{ExecutionProvider, XNNPACK};
+use ort::ep::CoreML;
 use ort::session::builder::GraphOptimizationLevel;
 use rayon::prelude::*;
 use std::path::Path;
@@ -13,21 +13,20 @@ const IMAGE_SIZE: u32 = 224;
 const MEAN: [f32; 3] = [0.48145466, 0.4578275, 0.40821073];
 const STD: [f32; 3] = [0.26862954, 0.261_302_6, 0.275_777_1];
 
-pub struct ClipModel {
+pub struct TextModel {
     session: ort::session::Session,
     tokenizer: tokenizers::Tokenizer,
 }
 
-impl ClipModel {
+pub struct VisionModel {
+    session: ort::session::Session,
+}
+
+impl TextModel {
     pub fn new(model_path: &Path, tokenizer_path: &Path) -> anyhow::Result<Self> {
-        log::debug!("CoreML available: {:?}", XNNPACK::default().is_available());
-        log::debug!(
-            "CoreML supported on platform: {}",
-            XNNPACK::default().supported_by_platform()
-        );
         let session = ort::session::Session::builder()?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_execution_providers([XNNPACK::default().build()])?
+            .with_execution_providers([CoreML::default().build()])?
             .with_intra_threads(4)?
             .commit_from_file(model_path)?;
 
@@ -74,22 +73,30 @@ impl ClipModel {
         let input_ids = ndarray::Array2::<i64>::from_shape_vec((1, CONTEXT_LENGTH), input_ids)?;
         let attention_mask =
             ndarray::Array2::<i64>::from_shape_vec((1, CONTEXT_LENGTH), attention_mask)?;
-        // dummy pixel_values (1x3xIMAGE_SIZExIMAGE_SIZE) — not used for text, but required by the model
-        let pixel_values =
-            ndarray::Array4::<f32>::zeros((1, 3, IMAGE_SIZE as usize, IMAGE_SIZE as usize));
 
         let input_ids = ort::value::Tensor::from_array(input_ids)?;
         let attention_mask = ort::value::Tensor::from_array(attention_mask)?;
-        let pixel_values = ort::value::Tensor::from_array(pixel_values)?;
 
-        let outputs = self.session.run(
-            ort::inputs!["input_ids" => input_ids, "pixel_values" => pixel_values, "attention_mask" => attention_mask],
-        )?;
+        let outputs = self
+            .session
+            .run(ort::inputs!["input_ids" => input_ids, "attention_mask" => attention_mask])?;
 
         let (_, embedding_data) = outputs["text_embeds"].try_extract_tensor::<f32>()?;
         let embedding = ndarray::Array1::from_vec(embedding_data.to_vec());
         let normalized = normalize_embed(embedding);
         Ok(normalized)
+    }
+}
+
+impl VisionModel {
+    pub fn new(model_path: &Path) -> anyhow::Result<Self> {
+        let session = ort::session::Session::builder()?
+            .with_optimization_level(GraphOptimizationLevel::Level3)?
+            .with_execution_providers([CoreML::default().build()])?
+            .with_intra_threads(4)?
+            .commit_from_file(model_path)?;
+
+        Ok(Self { session })
     }
 
     fn batch_preprocess_images(
@@ -241,17 +248,11 @@ impl ClipModel {
         &mut self,
         pixel_values: ndarray::Array4<f32>,
     ) -> anyhow::Result<Vec<ndarray::Array1<f32>>> {
-        // dummy text inputs — not used for image, but required by the model
-        let input_ids = ndarray::Array2::<i64>::zeros((1, CONTEXT_LENGTH));
-        let attention_mask = ndarray::Array2::<i64>::zeros((1, CONTEXT_LENGTH));
-
-        let input_ids = ort::value::Tensor::from_array(input_ids)?;
-        let attention_mask = ort::value::Tensor::from_array(attention_mask)?;
         let pixel_values = ort::value::Tensor::from_array(pixel_values)?;
 
-        let outputs = self.session.run(
-            ort::inputs!["input_ids" => input_ids, "pixel_values" => pixel_values, "attention_mask" => attention_mask],
-        )?;
+        let outputs = self
+            .session
+            .run(ort::inputs!["pixel_values" => pixel_values])?;
 
         let (shape, embedding_data) = outputs["image_embeds"].try_extract_tensor::<f32>()?;
         let batch = shape[0] as usize;

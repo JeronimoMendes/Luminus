@@ -2,13 +2,11 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use exif::{In, Tag};
 use sqlx::{Pool, QueryBuilder, Sqlite};
 use std::path::Path;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use zerocopy::IntoBytes;
 
-use std::sync::Mutex;
-
 use crate::{
-    clip::model::ClipModel,
+    clip::model::VisionModel,
     models::{PhotographMeta, ScanResult, ScanUpdate, VideoMeta},
 };
 
@@ -209,13 +207,28 @@ const BATCH_SIZE: usize = 32;
 pub async fn embed_media(
     scan_result: &ScanResult,
     pool: &Pool<Sqlite>,
-    image_embeder: &Mutex<ClipModel>,
     app: AppHandle,
 ) -> anyhow::Result<()> {
     let number_of_images = scan_result.images.len();
     let chunks: Vec<&[PhotographMeta]> = scan_result.images.chunks(BATCH_SIZE).collect();
     let total_batches = chunks.len();
     let mut images_scanned: usize = 0;
+
+    let vision_model_path = {
+        let resource_dir = app
+            .path()
+            .resource_dir()
+            .expect("failed to resolve resource_dir");
+        let candidate = resource_dir.join("models/vision_model.onnx");
+        if candidate.exists() {
+            candidate
+        } else {
+            let dev = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../.models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K");
+            dev.join("vision_model.onnx")
+        }
+    };
+    let mut vision_model: VisionModel = VisionModel::new(&vision_model_path)?;
 
     log::info!(
         "Starting to embed {} images in {} batches of {}",
@@ -229,7 +242,7 @@ pub async fn embed_media(
 
         let mut timer = timelog::Timer::new();
         timer.time("batch");
-        let embeds = image_embeder.lock().unwrap().batch_embed_images(paths)?;
+        let embeds = vision_model.batch_embed_images(paths)?;
         log::info!(
             "Batch {}/{} ({} images) took {} ms",
             batch_idx + 1,
@@ -293,7 +306,7 @@ pub async fn embed_media(
         let mut timer = timelog::Timer::new();
         timer.time("batch");
         let embeds: Vec<Vec<(u32, ndarray::Array1<f32>)>> =
-            image_embeder.lock().unwrap().batch_embed_videos(paths)?;
+            vision_model.batch_embed_videos(paths)?;
         log::info!(
             "Batch {}/{} ({} videos) took {} ms",
             batch_idx + 1,

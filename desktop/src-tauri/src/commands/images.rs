@@ -102,7 +102,7 @@ pub async fn query_photograph(
         distance
     );
     let query_embed = state
-        .clip
+        .text_model
         .lock()
         .unwrap()
         .embed_text(&query)
@@ -194,7 +194,7 @@ pub async fn query_media(
         distance
     );
     let query_embed = state
-        .clip
+        .text_model
         .lock()
         .unwrap()
         .embed_text(&query)

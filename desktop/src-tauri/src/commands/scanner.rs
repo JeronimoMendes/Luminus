@@ -48,7 +48,7 @@ pub async fn scan_folder(
         }
     }
 
-    metadata::embed_media(&results, &state.db, &state.clip, app)
+    metadata::embed_media(&results, &state.db, app)
         .await
         .map_err(MyCustomError::from)?;
 

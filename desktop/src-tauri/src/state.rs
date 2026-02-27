@@ -5,5 +5,5 @@ use crate::db;
 
 pub struct AppState {
     pub db: db::Db,
-    pub clip: Mutex<clip::model::ClipModel>,
+    pub text_model: Mutex<clip::model::TextModel>,
 }

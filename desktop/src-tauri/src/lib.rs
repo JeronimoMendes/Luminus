@@ -85,25 +85,25 @@ pub fn run() {
             });
             tauri::async_runtime::block_on(async move {
                 let db = setup_db(app).await;
-                let (model_path, tokenizer_path) = {
+                let (text_model_path, tokenizer_path) = {
                     let resource_dir = app
                         .path()
                         .resource_dir()
                         .expect("failed to resolve resource_dir");
-                    let candidate = resource_dir.join("models/model.onnx");
+                    let candidate = resource_dir.join("models/text_model.onnx");
                     if candidate.exists() {
                         (candidate, resource_dir.join("models/tokenizer.json"))
                     } else {
                         let dev = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                             .join("../../.models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K");
-                        (dev.join("model.onnx"), dev.join("tokenizer.json"))
+                        (dev.join("text_model.onnx"), dev.join("tokenizer.json"))
                     }
                 };
-                let clip = clip::model::ClipModel::new(&model_path, &tokenizer_path)?;
+                let text_model = clip::model::TextModel::new(&text_model_path, &tokenizer_path)?;
 
                 app.manage(AppState {
                     db,
-                    clip: std::sync::Mutex::new(clip),
+                    text_model: std::sync::Mutex::new(text_model),
                 });
                 Ok::<(), Box<dyn std::error::Error>>(())
             })?;
