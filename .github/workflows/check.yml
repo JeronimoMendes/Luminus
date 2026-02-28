@@ -1,0 +1,57 @@
+name: Check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libavformat-dev \
+            libavcodec-dev \
+            libavutil-dev \
+            libswscale-dev \
+            libavdevice-dev \
+            libavfilter-dev \
+            libswresample-dev \
+            clang
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install frontend dependencies
+        working-directory: desktop
+        run: bun install
+
+      - name: Check Rust formatting
+        working-directory: desktop/src-tauri
+        run: cargo fmt --check
+
+      - name: Run Clippy
+        working-directory: desktop/src-tauri
+        run: cargo clippy -- -D warnings
+
+      - name: Check frontend formatting
+        working-directory: desktop
+        run: npx @biomejs/biome check src/

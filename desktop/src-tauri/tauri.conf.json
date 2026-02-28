@@ -37,7 +37,8 @@
 		],
 		"resources": {
 			"resources/ffmpeg": "ffmpeg",
-			"../../.models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K/model.onnx": "models/model.onnx",
+			"../../.models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K/vision_model.onnx": "models/vision_model.onnx",
+			"../../.models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K/text_model.onnx": "models/text_model.onnx",
 			"../../.models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K/tokenizer.json": "models/tokenizer.json"
 		}
 	}
