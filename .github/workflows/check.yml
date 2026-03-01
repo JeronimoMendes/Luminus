@@ -44,13 +44,21 @@ jobs:
         working-directory: desktop
         run: bun install
 
+      - name: Create model placeholders
+        run: |
+          mkdir -p .models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K
+          touch .models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K/vision_model.onnx
+          touch .models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K/text_model.onnx
+          touch .models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K/tokenizer.json
+          mkdir -p desktop/src-tauri/resources/ffmpeg
+
       - name: Check Rust formatting
         working-directory: desktop/src-tauri
         run: cargo fmt --check
 
       - name: Run Clippy
         working-directory: desktop/src-tauri
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --no-deps -- -D warnings
 
       - name: Check frontend formatting
         working-directory: desktop
