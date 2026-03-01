@@ -17,8 +17,9 @@ function toDraft(s: SearchSettings): DraftSettings {
 
 function fromDraft(d: DraftSettings): SearchSettings | null {
 	const dist = parseFloat(d.distanceThreshold);
-	const limit = parseInt(d.queryLimit);
-	if (isNaN(dist) || dist <= 0 || isNaN(limit) || limit < 1) return null;
+	const limit = parseInt(d.queryLimit, 10);
+	if (Number.isNaN(dist) || dist <= 0 || Number.isNaN(limit) || limit < 1)
+		return null;
 	return { distanceThreshold: dist, queryLimit: limit };
 }
 

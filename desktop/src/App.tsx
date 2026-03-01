@@ -1,181 +1,206 @@
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { WelcomeSplash } from "@/components/welcome-splash";
 import { ContentHeader } from "@/components/content-header";
 import { FilterPanel, type Filters } from "@/components/filter-panel";
 import { ImageGrid } from "@/components/image-grid";
 import { ImportQueue } from "@/components/import-queue";
 import { Sidebar } from "@/components/sidebar";
 import { TopBar } from "@/components/top-bar";
-import { loadSettings, SETTINGS_CHANGED_EVENT, type SearchSettings } from "@/settings";
+import { WelcomeSplash } from "@/components/welcome-splash";
+import {
+	loadSettings,
+	SETTINGS_CHANGED_EVENT,
+	type SearchSettings,
+} from "@/settings";
 import { api } from "./api";
 import type { MediaItem } from "./api/types";
 
 const emptyFilters: Filters = { camera: [], lens: [], iso: [] };
 
 function App() {
-  const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem("luminus-welcomed"));
-  const [media, setMedia] = useState<MediaItem[]>([]);
-  const [selectedImage, setSelectedImage] = useState<MediaItem | null>(null);
-  const [search, setSearch] = useState("");
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [filters, setFilters] = useState<Filters>(emptyFilters);
-  const [settings, setSettings] = useState<SearchSettings>(loadSettings);
-  const [activeNav, setActiveNav] = useState<"library" | "semantic">("library");
-  const clearSelected = useCallback(() => setSelectedImage(null), []);
-  const isSearchActive = search.trim().length > 0;
+	const [showWelcome, setShowWelcome] = useState(
+		() => !localStorage.getItem("luminus-welcomed"),
+	);
+	const [media, setMedia] = useState<MediaItem[]>([]);
+	const [selectedImage, setSelectedImage] = useState<MediaItem | null>(null);
+	const [search, setSearch] = useState("");
+	const [filterOpen, setFilterOpen] = useState(false);
+	const [filters, setFilters] = useState<Filters>(emptyFilters);
+	const [settings, setSettings] = useState<SearchSettings>(loadSettings);
+	const [activeNav, setActiveNav] = useState<"library" | "semantic">("library");
+	const clearSelected = useCallback(() => setSelectedImage(null), []);
+	const isSearchActive = search.trim().length > 0;
 
-  const filterOptions = useMemo(() => {
-    const cameras = new Set<string>();
-    const lenses = new Set<string>();
-    const isos = new Set<string>();
-    for (const item of media) {
-      if (item.type !== "image") continue;
-      const cam = [item.camera_maker, item.camera_model].filter(Boolean).join(" ");
-      if (cam) cameras.add(cam);
-      const lens = [item.lens_maker, item.lens_model].filter(Boolean).join(" ");
-      if (lens) lenses.add(lens);
-      if (item.iso) isos.add(item.iso);
-    }
-    return {
-      cameras: [...cameras].sort(),
-      lenses: [...lenses].sort(),
-      isos: [...isos].sort((a, b) => Number(a) - Number(b)),
-    };
-  }, [media]);
+	const filterOptions = useMemo(() => {
+		const cameras = new Set<string>();
+		const lenses = new Set<string>();
+		const isos = new Set<string>();
+		for (const item of media) {
+			if (item.type !== "image") continue;
+			const cam = [item.camera_maker, item.camera_model]
+				.filter(Boolean)
+				.join(" ");
+			if (cam) cameras.add(cam);
+			const lens = [item.lens_maker, item.lens_model].filter(Boolean).join(" ");
+			if (lens) lenses.add(lens);
+			if (item.iso) isos.add(item.iso);
+		}
+		return {
+			cameras: [...cameras].sort(),
+			lenses: [...lenses].sort(),
+			isos: [...isos].sort((a, b) => Number(a) - Number(b)),
+		};
+	}, [media]);
 
-  const filteredImages = useMemo(() => {
-    const hasFilters = filters.camera.length > 0 || filters.lens.length > 0 || filters.iso.length > 0;
-    if (!hasFilters) return media;
-    return media.filter((item) => {
-      if (item.type === "video") return true;
-      const cam = [item.camera_maker, item.camera_model].filter(Boolean).join(" ");
-      const lens = [item.lens_maker, item.lens_model].filter(Boolean).join(" ");
-      if (filters.camera.length > 0 && !filters.camera.includes(cam)) return false;
-      if (filters.lens.length > 0 && !filters.lens.includes(lens)) return false;
-      if (filters.iso.length > 0 && !filters.iso.includes(item.iso)) return false;
-      return true;
-    });
-  }, [media, filters]);
+	const filteredImages = useMemo(() => {
+		const hasFilters =
+			filters.camera.length > 0 ||
+			filters.lens.length > 0 ||
+			filters.iso.length > 0;
+		if (!hasFilters) return media;
+		return media.filter((item) => {
+			if (item.type === "video") return true;
+			const cam = [item.camera_maker, item.camera_model]
+				.filter(Boolean)
+				.join(" ");
+			const lens = [item.lens_maker, item.lens_model].filter(Boolean).join(" ");
+			if (filters.camera.length > 0 && !filters.camera.includes(cam))
+				return false;
+			if (filters.lens.length > 0 && !filters.lens.includes(lens)) return false;
+			if (filters.iso.length > 0 && !filters.iso.includes(item.iso))
+				return false;
+			return true;
+		});
+	}, [media, filters]);
 
-  const activeFilterCount = filters.camera.length + filters.lens.length + filters.iso.length;
+	const activeFilterCount =
+		filters.camera.length + filters.lens.length + filters.iso.length;
 
-  const loadImages = useCallback(async () => {
-    const [images, videos] = await Promise.all([api.getAllImages(), api.getAllVideos()]);
-    const merged: MediaItem[] = [
-      ...images.map((img) => ({ ...img, type: "image" as const })),
-      ...videos.map((vid) => ({ ...vid, type: "video" as const })),
-    ];
-    merged.sort((a, b) => {
-      const da = a.datetime ?? "";
-      const db = b.datetime ?? "";
-      return db.localeCompare(da);
-    });
-    setMedia(merged);
-  }, []);
+	const loadImages = useCallback(async () => {
+		const [images, videos] = await Promise.all([
+			api.getAllImages(),
+			api.getAllVideos(),
+		]);
+		const merged: MediaItem[] = [
+			...images.map((img) => ({ ...img, type: "image" as const })),
+			...videos.map((vid) => ({ ...vid, type: "video" as const })),
+		];
+		merged.sort((a, b) => {
+			const da = a.datetime ?? "";
+			const db = b.datetime ?? "";
+			return db.localeCompare(da);
+		});
+		setMedia(merged);
+	}, []);
 
-  useEffect(() => {
-    loadImages();
-  }, [loadImages]);
+	useEffect(() => {
+		loadImages();
+	}, [loadImages]);
 
-  useEffect(() => {
-    const unlisten = listen<SearchSettings>(SETTINGS_CHANGED_EVENT, (event) => {
-      setSettings(event.payload);
-    });
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, []);
+	useEffect(() => {
+		const unlisten = listen<SearchSettings>(SETTINGS_CHANGED_EVENT, (event) => {
+			setSettings(event.payload);
+		});
+		return () => {
+			unlisten.then((fn) => fn());
+		};
+	}, []);
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    const query = search.trim();
-    if (!query) {
-      loadImages().catch(console.error);
-      return;
-    }
+	useEffect(() => {
+		const query = search.trim();
+		if (!query) {
+			loadImages().catch(console.error);
+			return;
+		}
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const results = await api.queryMedia(query, settings.queryLimit, settings.distanceThreshold);
-        setMedia(results);
-      } catch (e) {
-        console.error("queryMedia failed:", e);
-      }
-    }, 600);
+		if (debounceRef.current) clearTimeout(debounceRef.current);
+		debounceRef.current = setTimeout(async () => {
+			try {
+				const results = await api.queryMedia(
+					query,
+					settings.queryLimit,
+					settings.distanceThreshold,
+				);
+				setMedia(results);
+			} catch (e) {
+				console.error("queryMedia failed:", e);
+			}
+		}, 600);
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [search, settings, loadImages]);
+		return () => {
+			if (debounceRef.current) clearTimeout(debounceRef.current);
+		};
+	}, [search, settings, loadImages]);
 
-  const handleScanProgress = useCallback(() => {
-    loadImages();
-  }, [loadImages]);
+	const handleScanProgress = useCallback(() => {
+		loadImages();
+	}, [loadImages]);
 
-  const handlePickFolder = async () => {
-    const selected = await open({ directory: true });
-    if (selected) {
-      await api.scanFolder(selected);
-      await loadImages();
-    }
-  };
+	const handlePickFolder = async () => {
+		const selected = await open({ directory: true });
+		if (selected) {
+			await api.scanFolder(selected);
+			await loadImages();
+		}
+	};
 
-  return (
-    <main className="h-screen flex bg-background">
-      {showWelcome && <WelcomeSplash onDone={() => setShowWelcome(false)} />}
-      <Sidebar activeNav={activeNav} onNavChange={setActiveNav} />
-      <div className="relative flex-1 min-w-0 h-full flex flex-col overflow-hidden">
-        <TopBar
-          search={search}
-          onSearchChange={setSearch}
-          filterOpen={filterOpen}
-          onFilterToggle={() => setFilterOpen((v) => !v)}
-          activeFilterCount={activeFilterCount}
-          onImport={handlePickFolder}
-        />
-        <div className="flex-1 min-h-0 bg-card relative">
-          <ContentHeader
-            photoCount={filteredImages.filter((i) => i.type === "image").length}
-            videoCount={filteredImages.filter((i) => i.type === "video").length}
-          />
-          {filteredImages.length > 0 ? (
-            <div className="h-[calc(100%-88px)]">
-              <ImageGrid
-                images={filteredImages}
-                selected={selectedImage}
-                onSelect={setSelectedImage}
-                onClose={clearSelected}
-                preserveSearchOrder={isSearchActive}
-              />
-            </div>
-          ) : isSearchActive ? (
-            <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
-              No results for &ldquo;{search}&rdquo;
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-64 text-muted-foreground text-sm gap-2">
-              <p>No media yet</p>
-              <p className="text-xs">Click Import to add your first photos and videos</p>
-            </div>
-          )}
-          <div className="absolute bottom-4 right-4 w-[430px] z-50">
-            <ImportQueue onScanProgress={handleScanProgress} />
-          </div>
-          <FilterPanel
-            open={filterOpen}
-            onClose={() => setFilterOpen(false)}
-            filters={filters}
-            onFiltersChange={setFilters}
-            options={filterOptions}
-          />
-        </div>
-      </div>
-    </main>
-  );
+	return (
+		<main className="h-screen flex bg-background">
+			{showWelcome && <WelcomeSplash onDone={() => setShowWelcome(false)} />}
+			<Sidebar activeNav={activeNav} onNavChange={setActiveNav} />
+			<div className="relative flex-1 min-w-0 h-full flex flex-col overflow-hidden">
+				<TopBar
+					search={search}
+					onSearchChange={setSearch}
+					filterOpen={filterOpen}
+					onFilterToggle={() => setFilterOpen((v) => !v)}
+					activeFilterCount={activeFilterCount}
+					onImport={handlePickFolder}
+				/>
+				<div className="flex-1 min-h-0 bg-card relative">
+					<ContentHeader
+						photoCount={filteredImages.filter((i) => i.type === "image").length}
+						videoCount={filteredImages.filter((i) => i.type === "video").length}
+					/>
+					{filteredImages.length > 0 ? (
+						<div className="h-[calc(100%-88px)]">
+							<ImageGrid
+								images={filteredImages}
+								selected={selectedImage}
+								onSelect={setSelectedImage}
+								onClose={clearSelected}
+								preserveSearchOrder={isSearchActive}
+							/>
+						</div>
+					) : isSearchActive ? (
+						<div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
+							No results for &ldquo;{search}&rdquo;
+						</div>
+					) : (
+						<div className="flex flex-col items-center justify-center h-64 text-muted-foreground text-sm gap-2">
+							<p>No media yet</p>
+							<p className="text-xs">
+								Click Import to add your first photos and videos
+							</p>
+						</div>
+					)}
+					<div className="absolute bottom-4 right-4 w-[430px] z-50">
+						<ImportQueue onScanProgress={handleScanProgress} />
+					</div>
+					<FilterPanel
+						open={filterOpen}
+						onClose={() => setFilterOpen(false)}
+						filters={filters}
+						onFiltersChange={setFilters}
+						options={filterOptions}
+					/>
+				</div>
+			</div>
+		</main>
+	);
 }
 
 export default App;
