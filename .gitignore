@@ -1,2 +1,4 @@
 .models/
 .venv
+desktop/src-tauri/resources/ffmpeg
+desktop/src-tauri/resources/ffmpeg.exe

@@ -46,11 +46,12 @@ jobs:
 
       - name: Create model placeholders
         run: |
+          mkdir -p desktop/src-tauri/resources
+          touch desktop/src-tauri/resources/ffmpeg
           mkdir -p .models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K
           touch .models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K/vision_model.onnx
           touch .models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K/text_model.onnx
           touch .models/laion-CLIP-ViT-B-32-laion2B-s34B-b79K/tokenizer.json
-          mkdir -p desktop/src-tauri/resources/ffmpeg
 
       - name: Check Rust formatting
         working-directory: desktop/src-tauri
