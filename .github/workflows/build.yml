@@ -15,7 +15,7 @@ jobs:
             args: --target aarch64-apple-darwin
           - platform: macos-13
             args: --target x86_64-apple-darwin
-          - platform: ubuntu-22.04
+          - platform: ubuntu-24.04
             args: ""
           - platform: windows-latest
             args: ""
@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Linux system dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.platform == 'ubuntu-24.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -42,6 +42,10 @@ jobs:
             libavfilter-dev \
             libswresample-dev \
             clang
+
+      - name: Install macOS system dependencies
+        if: startsWith(matrix.platform, 'macos')
+        run: brew install ffmpeg pkg-config
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -64,6 +68,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Export and split CLIP model
+        shell: bash
         run: |
           uvx --from "optimum[onnxruntime]" optimum-cli export onnx \
             --model laion/CLIP-ViT-B-32-laion2B-s34B-b79K \
